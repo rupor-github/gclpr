@@ -1,4 +1,4 @@
-module gclpr
+module github.com/rupor-github/gclpr
 
 go 1.15
 
