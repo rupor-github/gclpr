@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -61,7 +62,7 @@ func (sc *secConn) Close() error {
 }
 
 // Serve handles backend rpc calls.
-func Serve(port int, le string, pkeys map[[32]byte]struct{}) error {
+func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte]struct{}) error {
 
 	if err := rpc.Register(NewURI()); err != nil {
 		return fmt.Errorf("unable to register URI rpc object: %w", err)
@@ -81,7 +82,12 @@ func Serve(port int, le string, pkeys map[[32]byte]struct{}) error {
 	if err != nil {
 		return fmt.Errorf("unable to listen on '%s': %w", addr, err)
 	}
-	defer l.Close()
+
+	// This will break the loop
+	go func() {
+		<-ctx.Done()
+		l.Close()
+	}()
 
 	log.Print("Server is ready\n")
 	for {

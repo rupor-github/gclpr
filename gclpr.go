@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -248,16 +249,6 @@ func run() int {
 			return rc.Call("Clipboard.Paste", struct{}{}, &resp)
 		})
 		os.Stdout.Write([]byte(server.ConvertLE(resp, aLE)))
-	case cmdServer:
-		var pkeys map[[32]byte]struct{}
-		pkeys, err = util.ReadTrustedKeys(home)
-		if err == nil {
-			log.Printf("Starting server with %d trusted public key(s)\n", len(pkeys))
-			for k := range pkeys {
-				log.Printf("\t%s\n", hex.EncodeToString(k[:]))
-			}
-			err = server.Serve(aPort, aLE, pkeys)
-		}
 	case cmdGenKey:
 		pk, _, er := util.ReadKeys(home)
 		if er != nil {
@@ -267,6 +258,17 @@ func run() int {
 		}
 		if pk != nil {
 			fmt.Printf("\nPublic key:\n\t%s\n", hex.EncodeToString(pk[:]))
+		}
+	case cmdServer:
+		var pkeys map[[32]byte]struct{}
+		pkeys, err = util.ReadTrustedKeys(home)
+		if err == nil {
+			log.Printf("Starting server with %d trusted public key(s)\n", len(pkeys))
+			for k := range pkeys {
+				log.Printf("\t%s\n", hex.EncodeToString(k[:]))
+			}
+			// we never break this
+			err = server.Serve(context.Background(), aPort, aLE, pkeys)
 		}
 	default:
 		err = errors.New("this should never happen")
