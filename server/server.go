@@ -76,7 +76,7 @@ func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte]struct{}
 		return fmt.Errorf("unable to resolve address: %w", err)
 	}
 
-	log.Printf("Server listens on '%s'\n", addr)
+	log.Printf("gclpr server listens on '%s'\n", addr)
 
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
@@ -89,20 +89,21 @@ func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte]struct{}
 		l.Close()
 	}()
 
-	log.Print("Server is ready\n")
+	log.Print("gclpr server is ready\n")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			if !strings.Contains(err.Error(), "use of closed network connection") {
-				return fmt.Errorf("server is unable to accept requests: %w", err)
+				return fmt.Errorf("gclpr server is unable to accept requests: %w", err)
 			}
+			log.Print("gclpr server is shutting down\n")
 			return nil
 		}
 		go func(sc *secConn) {
 			defer sc.Close()
-			log.Printf("Server accepted request from '%s'", sc.conn.RemoteAddr())
+			log.Printf("gclpr server accepted request from '%s'", sc.conn.RemoteAddr())
 			rpc.ServeConn(sc)
-			log.Printf("Server handled request from '%s'", sc.conn.RemoteAddr())
+			log.Printf("gclpr server handled request from '%s'", sc.conn.RemoteAddr())
 		}(&secConn{
 			conn:  conn,
 			pkeys: pkeys,
