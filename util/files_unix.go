@@ -5,12 +5,23 @@ package util
 import (
 	"fmt"
 	"os"
+	"syscall"
 )
 
-func checkPermissions(fname string, perm os.FileMode) (bool, error) {
+func checkPermissions(fname string, readOK bool) error {
+
 	fi, err := os.Stat(fname)
 	if err != nil || !fi.Mode().IsRegular() {
-		return false, fmt.Errorf("not a regular file %s", fname)
+		return fmt.Errorf("not a regular file %s", fname)
 	}
-	return fi.Mode().Perm() == perm, nil
+
+	var uid int
+	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+		uid = int(stat.Uid)
+	}
+	perm := fi.Mode().Perm()
+	if !readOK && uid == os.Getuid() && (perm&077) != 0 {
+		return fmt.Errorf("bad permissions %o for file %s", perm, fname)
+	}
+	return nil
 }

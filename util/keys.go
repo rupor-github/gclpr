@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -24,26 +23,30 @@ func ReadKeys(home string) (*[32]byte, *[64]byte, error) {
 		return nil, nil, fmt.Errorf("keys directory %s does not exists", kd)
 	}
 
-	pubkey, err := ioutil.ReadFile(filepath.Join(kd, "key.pub"))
+	fn := filepath.Join(kd, "key.pub")
+	err = checkPermissions(fn, true)
+	if err != nil {
+		return nil, nil, fmt.Errorf("public key file permissions are too open: %w", err)
+	}
+	pubkey, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to read public key: %w", err)
 	}
 	if len(pubkey) != 32 {
 		return nil, nil, fmt.Errorf("bad public key size %d", len(pubkey))
 	}
-	key, err := ioutil.ReadFile(filepath.Join(kd, "key"))
+
+	fn = filepath.Join(kd, "key")
+	err = checkPermissions(fn, false)
+	if err != nil {
+		return nil, nil, fmt.Errorf("private key file permissions are too open: %w", err)
+	}
+	key, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to read private key: %w", err)
 	}
 	if len(key) != 64 {
 		return nil, nil, fmt.Errorf("bad private key size %d", len(key))
-	}
-	ok, err := checkPermissions(filepath.Join(kd, "key"), 0600)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to check private key permissions: %w", err)
-	}
-	if !ok {
-		return nil, nil, errors.New("private key file permissions are too open")
 	}
 
 	var pk [32]byte
@@ -87,18 +90,16 @@ func ReadTrustedKeys(home string) (map[[32]byte]struct{}, error) {
 		return nil, fmt.Errorf("keys directory %s does not exists", kd)
 	}
 
-	content, err := ioutil.ReadFile(filepath.Join(kd, "trusted"))
+	fn := filepath.Join(kd, "trusted")
+	err = checkPermissions(fn, true)
+	if err != nil {
+		return nil, fmt.Errorf("trusted keys file permissions are too open: %w", err)
+	}
+	content, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read public key: %w", err)
 	}
 
-	ok, err := checkPermissions(filepath.Join(kd, "trusted"), 0600)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check trusted keys file permissions: %w", err)
-	}
-	if !ok {
-		return nil, errors.New("trusted keys file permissions are too open")
-	}
 	res := make(map[[32]byte]struct{})
 	for _, b := range bytes.Split(bytes.ReplaceAll(content, []byte{'\r'}, []byte{'\n'}), []byte{'\n'}) {
 		b = bytes.TrimFunc(b, unicode.IsSpace)

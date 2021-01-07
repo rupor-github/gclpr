@@ -67,7 +67,7 @@ endif()
 # Project version number
 set(PRJ_VERSION_Major "1")
 set(PRJ_VERSION_Minor "0")
-set(PRJ_VERSION_Patch "4")
+set(PRJ_VERSION_Patch "5")
 
 if (EXISTS "${PROJECT_SOURCE_DIR}/.git" AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/.git")
     execute_process(COMMAND ${CMAKE_SOURCE_DIR}/cmake/githash.sh ${GIT_EXECUTABLE}
@@ -117,6 +117,16 @@ add_custom_target(bin_agent ALL
     COMMENT "Building gclpr..."
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 install(PROGRAMS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX} DESTINATION ${DEST_DIR} CONFIGURATIONS Release)
+
+########################################################################################################
+# Test targets
+########################################################################################################
+
+add_custom_target(test_util
+    COMMAND GOPATH=${GO_PATH} GO111MODULE=on GOOS=${CROSS_GOOS} GOARCH=${CROSS_GOARCH}
+        ${GO_EXECUTABLE} test ${TEST_RUN_ARGS} ./util
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMENT "Util tests...")
 
 ########################################################################################################
 # Development
