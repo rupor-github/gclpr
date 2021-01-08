@@ -21,7 +21,7 @@ Raison d'être
 I was using [lemonade](https://github.com/lemonade-command/lemonade) and particularly [my fork of it](https://github.com/rupor-github/lemonade) in my day to day activities 
 for a while, but was never fully satisfied. Lemonade code base was never structured for easy embedding in other projects. For [wsl-ssh-agent](https://github.com/rupor-github/wsl-ssh-agent) I had to copy and restructure some server code, which is never a good idea. 
 
-Since native Windows support is required and Windows OpenSSH does not work with UNIX sockets (even if Windows itself supports them natively) TCP must be used and additional security measures should be taken. This was never lemonade strong point - controlling access to clipboard by using source IP address does not seem good enough and today with VMs and containers configuration gets especially convoluted.
+Since native Windows support is required and Windows OpenSSH does not work with UNIX sockets (even if Windows itself supports them natively) TCP must be used and additional security measures should be taken. This was never lemonade's strong point - controlling access to clipboard by using source IP address does not seem good enough and today with VMs and containers configuration gets especially convoluted.
 
 Enter another remote clipboard tool
 ------------
