@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"unicode"
 
 	"golang.org/x/crypto/nacl/sign"
 )
@@ -69,6 +68,7 @@ func CreateKeys(home string) (*[32]byte, *[64]byte, error) {
 		return nil, nil, fmt.Errorf("cannot generate keys: %w", err)
 	}
 
+	//nolint:gosec
 	err = ioutil.WriteFile(filepath.Join(kd, "key.pub"), pk[:], 0644)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to save public key: %w", err)
@@ -102,7 +102,7 @@ func ReadTrustedKeys(home string) (map[[32]byte]struct{}, error) {
 
 	res := make(map[[32]byte]struct{})
 	for _, b := range bytes.Split(bytes.ReplaceAll(content, []byte{'\r'}, []byte{'\n'}), []byte{'\n'}) {
-		b = bytes.TrimFunc(b, unicode.IsSpace)
+		b = bytes.TrimSpace(b)
 		if len(b) == 0 || b[0] == '#' {
 			continue
 		}

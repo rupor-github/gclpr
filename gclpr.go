@@ -182,7 +182,7 @@ func (sc *secConn) Close() error {
 	return sc.conn.Close()
 }
 
-func doRpc(home string, op func(*rpc.Client) error) error {
+func doRPC(home string, op func(*rpc.Client) error) error {
 
 	pk, k, err := util.ReadKeys(home)
 	if err != nil {
@@ -236,16 +236,16 @@ func run() int {
 		if _, err = url.ParseRequestURI(aData); err != nil {
 			break
 		}
-		err = doRpc(home, func(rc *rpc.Client) error {
+		err = doRPC(home, func(rc *rpc.Client) error {
 			return rc.Call("URI.Open", aData, &struct{}{})
 		})
 	case cmdCopy:
-		err = doRpc(home, func(rc *rpc.Client) error {
+		err = doRPC(home, func(rc *rpc.Client) error {
 			return rc.Call("Clipboard.Copy", aData, &struct{}{})
 		})
 	case cmdPaste:
 		var resp string
-		err = doRpc(home, func(rc *rpc.Client) error {
+		err = doRPC(home, func(rc *rpc.Client) error {
 			return rc.Call("Clipboard.Paste", struct{}{}, &resp)
 		})
 		os.Stdout.Write([]byte(server.ConvertLE(resp, aLE)))
