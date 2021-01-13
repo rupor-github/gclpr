@@ -55,8 +55,7 @@ Options:
   -port int
         TCP port number (default 2850)
 ```
-
-Note, that TCP address cannot be changed - both client and server are always using `localhost`, only port could vary. 
+You could replace `pbcopy`, `pbpaste` and `xgd-open` with `gclpr` aliases - it will reognize names. Note, that TCP address cannot be changed (unlike in lemonade) - both client and server are always using `localhost`, only port could vary.
 
 Each request from the client is being signed using **private** key from the previously generated pair and prepended with **public** key from this pair. Thus channel is not encrypted (this part should be taken care of by ssh if any remote access is required, along with local port redirection) but rather cryptographically verified. Without ssh redirection (or dirty firewall tricks) this is strictly local (localhost only) command line clipboard provider.
 
