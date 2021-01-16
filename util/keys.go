@@ -149,6 +149,8 @@ func max(a, b int) int {
 // ----------------------------------------------------------------------------
 // Rest of the code calculates GnuPG compatible keygrip for ed25519 public key
 // We may want to sent it out instead of public key itself one day.
+//
+// Ref: https://github.com/romanz/trezor-agent/blob/master/libagent/gpg/protocol.py
 // ----------------------------------------------------------------------------
 
 // bignum2bytes converts an unsigned integer to MSB-first byte slice with specified size.
