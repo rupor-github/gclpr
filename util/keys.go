@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -136,4 +137,66 @@ func min(a, b int) int {
 		return b
 	}
 	return a
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// ----------------------------------------------------------------------------
+// Rest of the code calculates GnuPG compatible keygrip for ed25519 public key
+// We may want to sent it out instead of public key itself one day.
+// ----------------------------------------------------------------------------
+
+// bignum2bytes converts an unsigned integer to MSB-first byte slice with specified size.
+func bignum2bytes(num string, size int) []byte {
+	data, err := hex.DecodeString(num)
+	if err != nil {
+		log.Printf("Unable to decode [%s]: %s", num, err.Error())
+		return nil
+	}
+	buf := make([]byte, size)
+	for i := range buf {
+		buf[i] = 0
+	}
+	for i, j := max(0, size-len(data)), 0; i < size; i, j = i+1, j+1 {
+		buf[i] = data[j]
+
+	}
+	return buf
+}
+
+type part struct {
+	name  string
+	value []byte
+}
+
+func compute(parts []part) []byte {
+	h := new(bytes.Buffer)
+	for i := 0; i < len(parts); i++ {
+		if _, err := fmt.Fprintf(h, "(%d:%s%d:%s)", len(parts[i].name), parts[i].name, len(parts[i].value), parts[i].value); err != nil {
+			log.Printf("IO error in keygrip compute: %s", err.Error())
+			return nil
+		}
+	}
+	s := sha1.Sum(h.Bytes())
+	return s[:]
+}
+
+// GPGKeyGripED25519 computes GPG keygrip for Ed25519 public keys.
+func GPGKeyGripED25519(pk [32]byte) []byte {
+	return compute(
+		[]part{
+			{name: "p", value: bignum2bytes("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED", 32)},
+			{name: "a", value: []byte{1}},
+			{name: "b", value: bignum2bytes("2DFC9311D490018C7338BF8688861767FF8FF5B2BEBE27548A14B235ECA6874A", 32)},
+			{name: "g", value: bignum2bytes("04216936D3CD6E53FEC0A4E231FDD6DC5C692CC7609525A7B2C9562D608F25D5"+
+				"1A6666666666666666666666666666666666666666666666666666666666666658", 65)},
+			{name: "n", value: bignum2bytes("1000000000000000000000000000000014DEF9DEA2F79CD65812631A5CF5D3ED", 32)},
+			{name: "q", value: pk[:]},
+		},
+	)
 }
