@@ -177,6 +177,7 @@ type part struct {
 func compute(parts []part) []byte {
 	h := new(bytes.Buffer)
 	for i := 0; i < len(parts); i++ {
+		// buuld Rivest's S-exp
 		if _, err := fmt.Fprintf(h, "(%d:%s%d:%s)", len(parts[i].name), parts[i].name, len(parts[i].value), parts[i].value); err != nil {
 			log.Printf("IO error in keygrip compute: %s", err.Error())
 			return nil
@@ -190,12 +191,11 @@ func compute(parts []part) []byte {
 func GPGKeyGripED25519(pk [32]byte) []byte {
 	return compute(
 		[]part{
-			{name: "p", value: bignum2bytes("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFED", 32)},
+			{name: "p", value: bignum2bytes(ed25519_p, 32)},
 			{name: "a", value: []byte{1}},
-			{name: "b", value: bignum2bytes("2DFC9311D490018C7338BF8688861767FF8FF5B2BEBE27548A14B235ECA6874A", 32)},
-			{name: "g", value: bignum2bytes("04216936D3CD6E53FEC0A4E231FDD6DC5C692CC7609525A7B2C9562D608F25D5"+
-				"1A6666666666666666666666666666666666666666666666666666666666666658", 65)},
-			{name: "n", value: bignum2bytes("1000000000000000000000000000000014DEF9DEA2F79CD65812631A5CF5D3ED", 32)},
+			{name: "b", value: bignum2bytes(ed25519_b, 32)},
+			{name: "g", value: bignum2bytes(ed25519_g, 65)},
+			{name: "n", value: bignum2bytes(ed25519_n, 32)},
 			{name: "q", value: pk[:]},
 		},
 	)
