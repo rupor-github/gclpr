@@ -106,7 +106,7 @@ func checkPermissions(fname string, readOK bool) error {
 		return fmt.Errorf("bad owner of file %s", fname)
 	}
 
-	// iterate all aces of the file to find out if there is voilation of the following rules:
+	// iterate all aces of the file to find out if there is violation of the following rules:
 	//     1. no others than administrators group, system account and current user account have write permission on the file
 
 	ddacl := (*Acl)(unsafe.Pointer(dacl))
