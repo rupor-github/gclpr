@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"flag"
@@ -161,7 +162,7 @@ func processCommandLine(args []string) (cmd command, err error) {
 
 type secConn struct {
 	conn net.Conn
-	pk   *[32]byte
+	hpk  [32]byte
 	k    *[64]byte
 }
 
@@ -170,7 +171,8 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 }
 
 func (sc *secConn) Write(p []byte) (n int, err error) {
-	out := sign.Sign(sc.pk[:], p, sc.k)
+	header := append(misc.GetMagic(), sc.hpk[:]...)
+	out := sign.Sign(header, p, sc.k)
 	n, err = sc.conn.Write(out)
 	if err == nil {
 		n = len(p)
@@ -188,6 +190,7 @@ func doRPC(home string, op func(*rpc.Client) error) error {
 	if err != nil {
 		return err
 	}
+	hpk := sha256.Sum256(pk[:])
 
 	var conn net.Conn
 	conn, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", aPort))
@@ -195,7 +198,7 @@ func doRPC(home string, op func(*rpc.Client) error) error {
 		return err
 	}
 
-	rc := rpc.NewClient(&secConn{conn: conn, pk: pk, k: k})
+	rc := rpc.NewClient(&secConn{conn: conn, hpk: hpk, k: k})
 	defer rc.Close()
 
 	if err = op(rc); err != nil {
@@ -260,15 +263,15 @@ func run() int {
 			fmt.Printf("\nPublic key:\n\t%s\n", hex.EncodeToString(pk[:]))
 		}
 	case cmdServer:
-		var pkeys map[[32]byte]struct{}
+		var pkeys map[[32]byte][32]byte
 		pkeys, err = util.ReadTrustedKeys(home)
 		if err == nil {
 			log.Printf("Starting server with %d trusted public key(s)\n", len(pkeys))
-			for k := range pkeys {
-				log.Printf("\t%s\n", hex.EncodeToString(k[:]))
+			for k, v := range pkeys {
+				log.Printf("\t%s [%s]\n", hex.EncodeToString(v[:]), hex.EncodeToString(k[:]))
 			}
 			// we never break this
-			err = server.Serve(context.Background(), aPort, aLE, pkeys)
+			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.GetMagic())
 		}
 	default:
 		err = errors.New("this should never happen")

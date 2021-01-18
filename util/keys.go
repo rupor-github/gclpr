@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
@@ -83,7 +84,7 @@ func CreateKeys(home string) (*[32]byte, *[64]byte, error) {
 }
 
 // ReadTrustedKeys reads list of trusted public keys from file (server).
-func ReadTrustedKeys(home string) (map[[32]byte]struct{}, error) {
+func ReadTrustedKeys(home string) (map[[32]byte][32]byte, error) {
 
 	kd := filepath.Join(home, ".gclpr")
 	fi, err := os.Stat(kd)
@@ -101,7 +102,7 @@ func ReadTrustedKeys(home string) (map[[32]byte]struct{}, error) {
 		return nil, fmt.Errorf("unable to read public key: %w", err)
 	}
 
-	res := make(map[[32]byte]struct{})
+	res := make(map[[32]byte][32]byte)
 	for _, b := range bytes.Split(bytes.ReplaceAll(content, []byte{'\r'}, []byte{'\n'}), []byte{'\n'}) {
 		b = bytes.TrimSpace(b)
 		if len(b) == 0 || b[0] == '#' {
@@ -122,12 +123,14 @@ func ReadTrustedKeys(home string) (map[[32]byte]struct{}, error) {
 			log.Printf("Wrong size for key %s... in trusted keys file. Ignoring\n", string(b[:min(8, l)]))
 			continue
 		}
-		var k [32]byte
+
+		var k [32]byte // public key
 		copy(k[:], dst)
-		if _, ok := res[k]; ok {
+		hk := sha256.Sum256(dst) // and its hash
+		if _, ok := res[hk]; ok {
 			log.Printf("Duplicate key %s... in trusted keys file. Ignoring\n", string(b[:8]))
 		}
-		res[k] = struct{}{}
+		res[hk] = k
 	}
 	return res, nil
 }
