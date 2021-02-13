@@ -100,8 +100,17 @@ endif()
 # Some contexts dependent settings
 ########################################################################################################
 
+list(APPEND GO_ENV
+    GOPATH=${GO_PATH}
+    GOOS=${CROSS_GOOS}
+    GOARCH=${CROSS_GOARCH}
+#    GO111MODULE=on
+#    GOPRIVATE=
+    )
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(TEST_RUN_ARGS "-v")
+    set(GO_MOD_ARGS "-mod=mod")
 else()
     set(GO_MOD_ARGS "-mod=vendor")
 endif()
@@ -111,9 +120,7 @@ endif()
 ########################################################################################################
 
 add_custom_target(bin_agent ALL
-    COMMAND GOPATH=${GO_PATH} GO111MODULE=on GOOS=${CROSS_GOOS} GOARCH=${CROSS_GOARCH}
-        ${GO_EXECUTABLE} build -trimpath -o ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
-        ${GO_MOD_ARGS}
+    COMMAND ${GO_ENV} ${GO_EXECUTABLE} build ${GO_MOD_ARGS} -trimpath -o ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
     COMMENT "Building gclpr..."
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 install(PROGRAMS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX} DESTINATION ${DEST_DIR} CONFIGURATIONS Release)
@@ -123,8 +130,7 @@ install(PROGRAMS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX} DESTINATI
 ########################################################################################################
 
 add_custom_target(test_util
-    COMMAND GOPATH=${GO_PATH} GO111MODULE=on GOOS=${CROSS_GOOS} GOARCH=${CROSS_GOARCH}
-        ${GO_EXECUTABLE} test ${TEST_RUN_ARGS} ./util
+    COMMAND ${GO_ENV} ${GO_EXECUTABLE} test ${GO_MOD_ARGS} ${TEST_RUN_ARGS} ./util
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMENT "Util tests...")
 
@@ -171,14 +177,14 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
     add_custom_target(deps_tidy
         SOURCES ${PROJECT_SOURCE_DIR}/go.mod
-        COMMAND GOPATH=${GO_PATH} GO111MODULE=on GOOS=${CROSS_GOOS} GOARCH=${CROSS_GOARCH} ${GO_EXECUTABLE} mod tidy
+        COMMAND ${GO_ENV} ${GO_EXECUTABLE} mod tidy
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         COMMENT "Cleaning dependencies (go mod tidy)"
         VERBATIM)
 
     add_custom_target(deps_vendor
         SOURCES ${PROJECT_SOURCE_DIR}/go.mod
-        COMMAND GOPATH=${GO_PATH} GO111MODULE=on GOOS=${CROSS_GOOS} GOARCH=${CROSS_GOARCH} ${GO_EXECUTABLE} mod vendor
+        COMMAND ${GO_ENV} ${GO_EXECUTABLE} mod vendor
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
         COMMENT "Creating vendor directory (go mod vendor)"
         VERBATIM)
