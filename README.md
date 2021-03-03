@@ -15,6 +15,8 @@ Installation
 
 Download from the [releases page](https://github.com/rupor-github/gclpr/releases) and unpack it in a convenient location.
 
+Starting with v1.1.1 releases are packed with zip and signed with [minisign](https://jedisct1.github.io/minisign/). Here is public key for verification: ![key](docs/build_key.png) RWTNh1aN8DrXq26YRmWO3bPBx4m8jBATGXt4Z96DF4OVSzdCBmoAU+Vq
+
 Raison d'être
 ------------
 

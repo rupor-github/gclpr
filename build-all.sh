@@ -74,9 +74,12 @@ for _arch in ${ARCH_INSTALLS}; do
         ${mk} install
     )
     (
-        [ -f gclpr_${_arch}.7z ] && rm gclpr_${_arch}.7z
+        [ -f gclpr_${_arch}.zip ] && rm gclpr_${_arch}.zip
+        [ -f gclpr_${_arch}.zip.minisig ] && rm gclpr_${_arch}.zip.minisig
         cd ${_dist}
-        7z a -r ../gclpr_${_arch}
+        zip -9 ../gclpr_${_arch}.zip *
+        cd ..
+        echo ${BUILD_PSWD} | minisign -S -s ~/.minisign/build.key -c "gclpr for ${_arch} release signature" -m gclpr_${_arch}.zip
     )
 done
 

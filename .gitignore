@@ -9,8 +9,10 @@
 *.mprof
 *.log
 *.svg
-*.7z
 *.syso
+*.7z
+*.zip
+*.minisig
 
 build/
 bin/
