@@ -10,16 +10,13 @@
 *.log
 *.svg
 *.syso
-*.7z
-*.zip
-*.minisig
-
-build/
-bin/
 
 # build specific
-bin_*/
+build/
 build_*/
 misc/version.go
 cmd/*/resources.rc
 cmd/*/manifest.xml
+gclpr.json
+gclpr_*.zip
+gclpr_*.minisig

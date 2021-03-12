@@ -50,18 +50,20 @@ if not command -v ${mk} >/dev/null 2>&1; then
     exit 1
 fi
 
-for _arch in ${ARCH_INSTALLS}; do
+# This is VERY important - before starting we need to remove scoop manifest, otherwise hashes for different architectures would be wrong!
+[ -f gclpr.json ] && rm gclpr.json
 
-    _dist=bin_${_arch}
+for _arch in ${ARCH_INSTALLS}; do
 
     echo
     echo
     print_msg1 "Building ${_arch} release"
 
-    [ -d ${_dist} ] && rm -rf ${_dist}
-
     [ -d build_${_arch} ] && rm -rf build_${_arch}
     mkdir -p build_${_arch}
+
+    [ -f gclpr_${_arch}.zip ] && rm gclpr_${_arch}.zip
+    [ -f gclpr_${_arch}.zip.minisig ] && rm gclpr_${_arch}.zip.minisig
 
     (
         cd  build_${_arch}
@@ -71,16 +73,10 @@ for _arch in ${ARCH_INSTALLS}; do
         else
             cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=cmake/${_arch}.toolchain ..
         fi
-        ${mk} install
+        ${mk} release
     )
-    (
-        [ -f gclpr_${_arch}.zip ] && rm gclpr_${_arch}.zip
-        [ -f gclpr_${_arch}.zip.minisig ] && rm gclpr_${_arch}.zip.minisig
-        cd ${_dist}
-        zip -9 ../gclpr_${_arch}.zip *
-        cd ..
-        echo ${BUILD_PSWD} | minisign -S -s ~/.minisign/build.key -c "gclpr for ${_arch} release signature" -m gclpr_${_arch}.zip
-    )
+
+    rm -rf build_${_arch}
 done
 
 exit 0

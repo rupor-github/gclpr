@@ -42,8 +42,6 @@ else()
         message(STATUS "Targeting 64 bits Linux executable")
     endif()
 endif()
-set(DEST_DIR "${PROJECT_SOURCE_DIR}/bin_${MSYSTEM_NAME}")
-message(STATUS "Installation directory: ${DEST_DIR}")
 
 find_package(Go 1.15 REQUIRED)
 find_package(Git REQUIRED)
@@ -67,7 +65,7 @@ endif()
 # Project version number
 set(PRJ_VERSION_Major "1")
 set(PRJ_VERSION_Minor "1")
-set(PRJ_VERSION_Patch "1")
+set(PRJ_VERSION_Patch "2")
 
 if (EXISTS "${PROJECT_SOURCE_DIR}/.git" AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/.git")
     execute_process(COMMAND ${CMAKE_SOURCE_DIR}/cmake/githash.sh ${GIT_EXECUTABLE}
@@ -82,10 +80,12 @@ else()
     set(GIT_HASH "no-git")
 endif()
 configure_file("${PROJECT_SOURCE_DIR}/cmake/version.go.in" "${PROJECT_SOURCE_DIR}/misc/version.go")
+if(CROSS_GOOS STREQUAL "windows" AND NOT EXISTS "${PROJECT_SOURCE_DIR}/gclpr.json")
+    configure_file("${PROJECT_SOURCE_DIR}/cmake/gclpr.json.in" "${PROJECT_SOURCE_DIR}/gclpr.json")
+endif()
 
 # distribute history
 execute_process(COMMAND ${CMAKE_COMMAND} -E env ${GIT_EXECUTABLE} changelog --all --tag "v${PRJ_VERSION_Major}.${PRJ_VERSION_Minor}.${PRJ_VERSION_Patch}" --stdout OUTPUT_FILE ${PROJECT_BINARY_DIR}/changelog.txt ERROR_QUIET)
-install(FILES ${PROJECT_BINARY_DIR}/changelog.txt DESTINATION ${DEST_DIR} CONFIGURATIONS Release)
 
 message(STATUS "Building version \"${PRJ_VERSION_Major}.${PRJ_VERSION_Minor}.${PRJ_VERSION_Patch}\" git \"${GIT_HASH}\"")
 
@@ -104,8 +104,6 @@ list(APPEND GO_ENV
     GOPATH=${GO_PATH}
     GOOS=${CROSS_GOOS}
     GOARCH=${CROSS_GOARCH}
-#    GO111MODULE=on
-#    GOPRIVATE=
     )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -119,11 +117,33 @@ endif()
 # main target - always out of date, "go build" will figure it out
 ########################################################################################################
 
-add_custom_target(bin_agent ALL
+list(APPEND REL_DEPS ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip)
+if(CROSS_GOOS STREQUAL "windows")
+    list(APPEND REL_DEPS ${PROJECT_SOURCE_DIR}/gclpr.json)
+endif()
+
+add_custom_target(release
+    DEPENDS ${REL_DEPS}
+    COMMAND ${CMAKE_SOURCE_DIR}/cmake/sign.sh ${MSYSTEM_NAME}
+    COMMENT "Building release..."
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
+
+add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip
+    DEPENDS ${PROJECT_BINARY_DIR}/changelog.txt
+        ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
+        COMMAND ${CMAKE_COMMAND} -E tar "cfv" ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip --format=zip changelog.txt gclpr${CMAKE_EXECUTABLE_SUFFIX}
+    COMMENT "Archiving release..."
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
+
+# shortcut
+add_custom_target(bin_gclpr ALL
+    DEPENDS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
+
+add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
     COMMAND ${GO_ENV} ${GO_EXECUTABLE} build ${GO_MOD_ARGS} -trimpath -o ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
     COMMENT "Building gclpr..."
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
-install(PROGRAMS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX} DESTINATION ${DEST_DIR} CONFIGURATIONS Release)
 
 ########################################################################################################
 # Test targets
