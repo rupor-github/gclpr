@@ -5,11 +5,11 @@
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/rupor-github/win-gpg-agent/releases/download/v@PRJ_VERSION_Major@.@PRJ_VERSION_Minor@.@PRJ_VERSION_Patch@/gclpr_win64.zip",
+            "url": "https://github.com/rupor-github/gclpr/releases/download/v@PRJ_VERSION_Major@.@PRJ_VERSION_Minor@.@PRJ_VERSION_Patch@/gclpr_win64.zip",
             "hash": "__CURRENT_HASH_win64__"
         },
         "32bit": {
-            "url": "https://github.com/rupor-github/win-gpg-agent/releases/download/v@PRJ_VERSION_Major@.@PRJ_VERSION_Minor@.@PRJ_VERSION_Patch@/gclpr_win32.zip",
+            "url": "https://github.com/rupor-github/gclpr/releases/download/v@PRJ_VERSION_Major@.@PRJ_VERSION_Minor@.@PRJ_VERSION_Patch@/gclpr_win32.zip",
             "hash": "__CURRENT_HASH_win32__"
         }
     },
@@ -19,10 +19,10 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/rupor-github/win-gpg-agent/releases/download/v$version/gclpr_win64.zip"
+                "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/gclpr_win64.zip"
             },
             "32bit": {
-                "url": "https://github.com/rupor-github/win-gpg-agent/releases/download/v$version/gclpr_win32.zip"
+                "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/gclpr_win32.zip"
             }
         }
     }
