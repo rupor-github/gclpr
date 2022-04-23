@@ -43,7 +43,7 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 	copy(magic, in[0:len(magic)])
 
 	// check first 6 bytes of magic - signature and major version number
-	if bytes.Compare(magic[0:6], sc.magic[0:6]) != 0 {
+	if !bytes.Equal(magic[0:6], sc.magic[0:6]) {
 		log.Printf("Bad signature or incompatible versions: server [%x], client [%x]", sc.magic, magic)
 		return 0, rpc.ErrShutdown
 	}

@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 //nolint
@@ -156,7 +157,7 @@ func checkPermissions(fname string, readOK bool) error {
 			continue
 		}
 
-		return fmt.Errorf("bad permissions - try removing permissions for user: %s\\%s (%s) on file %s.", resolvedTrusteeDomain,
+		return fmt.Errorf("bad permissions - try removing permissions for user: %s\\%s (%s) on file %s", resolvedTrusteeDomain,
 			resolvedTrusteeAccount, currentTrusteeSid, fname)
 	}
 
