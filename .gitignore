@@ -8,7 +8,6 @@
 *.prof
 *.mprof
 *.log
-*.svg
 *.syso
 
 # build specific
