@@ -1,14 +1,10 @@
-<p align="center">
-    <h1 align="center">gclpr</h1>
-    <p align="center">
-		Simple utility tool - copy, paste and open browser over localhost TCP.
-    </p>
-    <p align="center">
-        <a href="https://goreportcard.com/report/github.com/rupor-github/gclpr"><img alt="Go Report Card" src="https://goreportcard.com/badge/github.com/rupor-github/gclpr" /></a>
-    </p>
-    <hr>
-</p>
+<h1>   
+    <img src="docs/clip.svg" style="vertical-align:middle; width:8%" align="absmiddle"/>
+    <span style="vertical-align:middle;">&nbsp;&nbsp;gclpr</span>
+</h1>
 
+### Simple utility tool - copy, paste and open browser over localhost TCP.
+[![GitHub Release](https://img.shields.io/github/release/rupor-github/gclpr.svg)](https://github.com/rupor-github/gclpr/releases)
 
 Installation
 ------------
