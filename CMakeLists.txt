@@ -66,7 +66,7 @@ endif()
 # Project version number
 set(PRJ_VERSION_Major "1")
 set(PRJ_VERSION_Minor "2")
-set(PRJ_VERSION_Patch "1")
+set(PRJ_VERSION_Patch "2")
 
 if (EXISTS "${PROJECT_SOURCE_DIR}/.git" AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/.git")
     execute_process(COMMAND ${CMAKE_SOURCE_DIR}/cmake/githash.sh ${GIT_EXECUTABLE}
@@ -105,6 +105,7 @@ list(APPEND GO_ENV
     GOPATH=${GO_PATH}
     GOOS=${CROSS_GOOS}
     GOARCH=${CROSS_GOARCH}
+    CGO_ENABLED=0
     )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
