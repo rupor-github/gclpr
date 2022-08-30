@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 project(gclpr NONE)
 
@@ -22,28 +22,34 @@ if(CMAKE_CROSSCOMPILING)
         set(CROSS_GOOS windows)
         set(CROSS_GOARCH amd64)
         message(STATUS "Targeting 64 bits Windows executable")
-    elseif(MSYSTEM_NAME STREQUAL "darwin")
+    elseif(MSYSTEM_NAME STREQUAL "darwin_amd64")
         set(CROSS_GOOS darwin)
         set(CROSS_GOARCH amd64)
-        message(STATUS "Targeting 64 bits Darwin executable")
+        message(STATUS "Targeting 64 bits Darwin AMD executable")
+    elseif(MSYSTEM_NAME STREQUAL "darwin_arm64")
+        set(CROSS_GOOS darwin)
+        set(CROSS_GOARCH arm64)
+        message(STATUS "Targeting 64 bits Darwin ARM executable")
     else()
         message(FATAL_ERROR "Currently unsuppored environment \"${MSYSTEM_NAME}\". CMake willl exit now.")
     endif()
 else()
     if (NOT "$ENV{MSYSTEM_NAME}" STREQUAL "")
         set(MSYSTEM_NAME "$ENV{MSYSTEM_NAME}" CACHE INTERNAL "Copied from environment")
+    else()
+        set(MSYSTEM_NAME "linux_amd64" CACHE INTERNAL "Host environment")
     endif()
     if("$ENV{MSYSTEM_NAME}" STREQUAL "linux_i386")
         set(CROSS_GOOS linux)
         set(CROSS_GOARCH 386)
         message(STATUS "Targeting 32 bits Linux executable")
     else()
-        # host platform is always linux_amd64
+        # host platform is always linux amd64
         message(STATUS "Targeting 64 bits Linux executable")
     endif()
 endif()
 
-set(GO_MIN_REQURED_VERSION 1.17)
+set(GO_MIN_REQURED_VERSION 1.19)
 find_package(Go ${GO_MIN_REQURED_VERSION} REQUIRED)
 find_package(Git REQUIRED)
 
@@ -65,8 +71,8 @@ endif()
 
 # Project version number
 set(PRJ_VERSION_Major "1")
-set(PRJ_VERSION_Minor "2")
-set(PRJ_VERSION_Patch "2")
+set(PRJ_VERSION_Minor "3")
+set(PRJ_VERSION_Patch "0")
 
 if (EXISTS "${PROJECT_SOURCE_DIR}/.git" AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/.git")
     execute_process(COMMAND ${CMAKE_SOURCE_DIR}/cmake/githash.sh ${GIT_EXECUTABLE}
@@ -81,8 +87,13 @@ else()
     set(GIT_HASH "no-git")
 endif()
 configure_file("${PROJECT_SOURCE_DIR}/cmake/version.go.in" "${PROJECT_SOURCE_DIR}/misc/version.go")
-if(CROSS_GOOS STREQUAL "windows" AND NOT EXISTS "${PROJECT_SOURCE_DIR}/gclpr.json")
+if(CROSS_GOOS STREQUAL "windows")
     configure_file("${PROJECT_SOURCE_DIR}/cmake/gclpr.json.in" "${PROJECT_SOURCE_DIR}/gclpr.json")
+    configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.rc.in" "${PROJECT_SOURCE_DIR}/cmd/gui/resources.rc")
+    configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.xml.in" "${PROJECT_SOURCE_DIR}/cmd/gui/manifest.xml")
+
+    # for user convinience
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/../../jstarks/npiperelay/npiperelay.exe ${PROJECT_BINARY_DIR})
 endif()
 
 # distribute history
@@ -120,9 +131,15 @@ endif()
 ########################################################################################################
 
 list(APPEND REL_DEPS ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip)
+list(APPEND ZIP_DEPS ${PROJECT_BINARY_DIR}/changelog.txt ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX})
 if(CROSS_GOOS STREQUAL "windows")
     list(APPEND REL_DEPS ${PROJECT_SOURCE_DIR}/gclpr.json)
+    list(APPEND ZIP_DEPS ${PROJECT_BINARY_DIR}/gclpr-gui${CMAKE_EXECUTABLE_SUFFIX} ${PROJECT_BINARY_DIR}/npiperelay${CMAKE_EXECUTABLE_SUFFIX})
 endif()
+foreach(file ${ZIP_DEPS})
+    get_filename_component(base ${file} NAME)
+    list(APPEND ZIP_CONT ${base})
+endforeach()
 
 add_custom_target(release
     DEPENDS ${REL_DEPS}
@@ -131,19 +148,38 @@ add_custom_target(release
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 
 add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip
-    DEPENDS ${PROJECT_BINARY_DIR}/changelog.txt
-        ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
-        COMMAND ${CMAKE_COMMAND} -E tar "cfv" ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip --format=zip changelog.txt gclpr${CMAKE_EXECUTABLE_SUFFIX}
+    DEPENDS ${ZIP_DEPS}
+    COMMAND ${CMAKE_COMMAND} -E tar "cfv" ${PROJECT_SOURCE_DIR}/gclpr_${MSYSTEM_NAME}.zip --format=zip ${ZIP_CONT}
     COMMENT "Archiving release..."
     WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 
+if(CROSS_GOOS STREQUAL "windows")
+    # shortcut
+    add_custom_target(bin_gclpr_gui ALL
+        DEPENDS ${PROJECT_SOURCE_DIR}/cmd/gui/resources.syso
+        BYPRODUCTS ${PROJECT_BINARY_DIR}/gclpr-gui${CMAKE_EXECUTABLE_SUFFIX}
+        COMMAND ${GO_ENV} ${GO_EXECUTABLE} build ${GO_MOD_ARGS} -trimpath -o ${PROJECT_BINARY_DIR}/gclpr-gui${CMAKE_EXECUTABLE_SUFFIX}
+            -ldflags='-H=windowsgui'
+            gclpr/cmd/gui
+        COMMENT "Building gclpr-gui..."
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
+
+    add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/cmd/gui/resources.syso
+         DEPENDS ${PROJECT_SOURCE_DIR}/cmd/gui/resources.rc
+             ${PROJECT_SOURCE_DIR}/cmd/gui/manifest.xml
+             ${PROJECT_SOURCE_DIR}/cmd/gui/icon.ico
+         COMMAND ${CMAKE_RC_COMPILER} -O coff
+             -o ${PROJECT_SOURCE_DIR}/cmd/gui/resources.syso
+             -i ${PROJECT_SOURCE_DIR}/cmd/gui/resources.rc
+         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+         COMMENT "Building gclpr-gui resources...")
+ endif()
+
 # shortcut
 add_custom_target(bin_gclpr ALL
-    DEPENDS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
-    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
-
-add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
+    BYPRODUCTS ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
     COMMAND ${GO_ENV} ${GO_EXECUTABLE} build ${GO_MOD_ARGS} -trimpath -o ${PROJECT_BINARY_DIR}/gclpr${CMAKE_EXECUTABLE_SUFFIX}
+        gclpr/cmd/cli
     COMMENT "Building gclpr..."
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 

@@ -42,10 +42,10 @@ Enter another remote clipboard tool
 `gclpr` attempts to behave similar to `lemonade`:
 
 ```
-gclpr - copy, paste and open browser over localhost TCP interface
+gclpr - copy, paste text and open browser over localhost TCP interface
 
 Version:
-    1.0.0 (go1.15.6) 
+    1.0.0 (go version) git hash
 
 Usage:
     gclpr [options]... COMMAND [arg]
@@ -70,6 +70,8 @@ Options:
         TCP port number (default 2850)
 ```
 You could replace `pbcopy`, `pbpaste` and `xgd-open` with `gclpr` aliases - it will recognize names. Note, that TCP address cannot be changed (unlike in lemonade) - both client and server are always using `localhost`, only port could vary.
+
+Recent Windows versions also include `gclpr-gui.exe` tools which allows you to run `server` as notification tray icon on Windows simplifying life cycle management and pre-built [npiperelay.exe](https://github.com/jstarks/npiperelay) to avoid installing multiple packages (needed by WSL2).
 
 Each request from the client is being signed using **private** key from the previously generated pair and prepended with **public** key from this pair. Thus channel is not encrypted (this part should be taken care of by ssh if any remote access is required, along with local port redirection) but rather cryptographically verified. Without ssh redirection (or dirty firewall tricks) this is strictly local (localhost only) command line clipboard provider.
 

@@ -1,11 +1,12 @@
-module github.com/rupor-github/gclpr
+module gclpr
 
-go 1.17
+go 1.19
 
 require (
+	github.com/allan-simon/go-singleinstance v0.0.0-20210120080615-d0997106ab37
 	github.com/atotto/clipboard v0.1.4
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150
 	honnef.co/go/tools v0.3.0
 )

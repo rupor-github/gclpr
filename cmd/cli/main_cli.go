@@ -7,7 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/rpc"
@@ -19,9 +19,9 @@ import (
 
 	"golang.org/x/crypto/nacl/sign"
 
-	"github.com/rupor-github/gclpr/misc"
-	"github.com/rupor-github/gclpr/server"
-	"github.com/rupor-github/gclpr/util"
+	"gclpr/misc"
+	"gclpr/server"
+	"gclpr/util"
 )
 
 const (
@@ -152,7 +152,7 @@ func processCommandLine(args []string) (cmd command, err error) {
 		aData = arg
 	} else {
 		var b []byte
-		if b, err = ioutil.ReadAll(os.Stdin); err != nil {
+		if b, err = io.ReadAll(os.Stdin); err != nil {
 			return
 		}
 		aData = string(b)
@@ -223,7 +223,7 @@ func run() int {
 	log.SetPrefix("[gclpr] ")
 	log.SetFlags(0)
 	if !aDebug {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 
 	home, err := os.UserHomeDir()
@@ -295,7 +295,7 @@ func main() {
 		var buf strings.Builder
 		cli.SetOutput(&buf)
 		fmt.Fprintf(&buf, `
-gclpr - copy, paste and open browser over localhost TCP interface
+gclpr - copy, paste text and open browser over localhost TCP interface
 
 Version:
     %s (%s) %s
