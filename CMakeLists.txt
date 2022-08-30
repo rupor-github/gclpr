@@ -88,10 +88,11 @@ else()
 endif()
 configure_file("${PROJECT_SOURCE_DIR}/cmake/version.go.in" "${PROJECT_SOURCE_DIR}/misc/version.go")
 if(CROSS_GOOS STREQUAL "windows")
-    configure_file("${PROJECT_SOURCE_DIR}/cmake/gclpr.json.in" "${PROJECT_SOURCE_DIR}/gclpr.json")
+    if(NOT EXISTS "${PROJECT_SOURCE_DIR}/gclpr.json")
+        configure_file("${PROJECT_SOURCE_DIR}/cmake/gclpr.json.in" "${PROJECT_SOURCE_DIR}/gclpr.json")
+    endif()
     configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.rc.in" "${PROJECT_SOURCE_DIR}/cmd/gui/resources.rc")
     configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.xml.in" "${PROJECT_SOURCE_DIR}/cmd/gui/manifest.xml")
-
     # for user convinience
     execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/../../jstarks/npiperelay/npiperelay.exe ${PROJECT_BINARY_DIR})
 endif()
