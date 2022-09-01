@@ -271,7 +271,7 @@ func run() int {
 				log.Printf("\t%s [%s]\n", hex.EncodeToString(v[:]), hex.EncodeToString(k[:]))
 			}
 			// we never break this
-			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.GetMagic())
+			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.GetMagic(), nil)
 		}
 	default:
 		err = errors.New("this should never happen")

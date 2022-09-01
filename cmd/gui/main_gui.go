@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 
 	"github.com/allan-simon/go-singleinstance"
 
@@ -22,8 +23,10 @@ var (
 	aPort       int
 	aLE         string
 	aHelp       bool
+	aUnlocked   bool
 	aDebug      bool
 	usageString string
+	lock        int32
 	clipCancel  context.CancelFunc
 	clipCtx     context.Context
 	title       = "gclpr-gui"
@@ -57,6 +60,18 @@ func onReady() {
 	}()
 }
 
+func onSession(e systray.SessionEvent) {
+	switch e {
+	case systray.SesLock:
+		atomic.StoreInt32(&lock, 1)
+		log.Print("Session locked")
+	case systray.SesUnlock:
+		atomic.StoreInt32(&lock, 0)
+		log.Print("Session unlocked")
+	default:
+	}
+}
+
 func onExit() {
 	// stop servicing clipboard and uri requests
 	clipCancel()
@@ -82,7 +97,11 @@ func clipStart() error {
 
 	clipCtx, clipCancel = context.WithCancel(context.Background())
 	go func() {
-		if err := server.Serve(clipCtx, aPort, aLE, pkeys, misc.GetMagic()); err != nil {
+		locked := &lock
+		if aUnlocked {
+			locked = nil // ignore session messages
+		}
+		if err := server.Serve(clipCtx, aPort, aLE, pkeys, misc.GetMagic(), locked); err != nil {
 			log.Printf("gclpr serve() returned error: %s", err.Error())
 		}
 	}()
@@ -118,6 +137,7 @@ func main() {
 	cli.BoolVar(&aHelp, "help", false, "Show help")
 	cli.IntVar(&aPort, "port", server.DefaultPort, "TCP port number")
 	cli.StringVar(&aLE, "line-ending", "", "Convert Line Endings (LF/CRLF)")
+	cli.BoolVar(&aUnlocked, "ignore-session-lock", false, "Continue to access clipboard inside locked session")
 	cli.BoolVar(&aDebug, "debug", false, "Print debugging information")
 
 	if err := cli.Parse(os.Args[1:]); err != nil {
@@ -147,7 +167,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	systray.Run(onReady, onExit, nil)
+	systray.Run(onReady, onExit, onSession)
 
 	// Not necessary
 	inst.Close()
