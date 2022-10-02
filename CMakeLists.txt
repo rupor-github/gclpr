@@ -72,7 +72,7 @@ endif()
 # Project version number
 set(PRJ_VERSION_Major "1")
 set(PRJ_VERSION_Minor "3")
-set(PRJ_VERSION_Patch "1")
+set(PRJ_VERSION_Patch "2")
 
 if (EXISTS "${PROJECT_SOURCE_DIR}/.git" AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/.git")
     execute_process(COMMAND ${CMAKE_SOURCE_DIR}/cmake/githash.sh ${GIT_EXECUTABLE}
@@ -103,9 +103,10 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E env ${GIT_EXECUTABLE} changelog --al
 message(STATUS "Building version \"${PRJ_VERSION_Major}.${PRJ_VERSION_Minor}.${PRJ_VERSION_Patch}\" git \"${GIT_HASH}\"")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    # Create git pre-commit hook to check formatting before commit
+    # Create local git hooks
     if(EXISTS "${PROJECT_SOURCE_DIR}/.git" AND IS_DIRECTORY "${PROJECT_SOURCE_DIR}/.git")
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/cmake/pre-commit ${PROJECT_SOURCE_DIR}/.git/hooks/. WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+        configure_file("${PROJECT_SOURCE_DIR}/cmake/pre-push" "${PROJECT_SOURCE_DIR}/.git/hooks/pre-push" @ONLY)
     endif()
 endif()
 
