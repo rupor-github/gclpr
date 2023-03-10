@@ -1,20 +1,20 @@
 module gclpr
 
-go 1.19
+go 1.20
 
 require (
 	github.com/allan-simon/go-singleinstance v0.0.0-20210120080615-d0997106ab37
 	github.com/atotto/clipboard v0.1.4
+	github.com/jstarks/npiperelay v0.1.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
-	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150
-	honnef.co/go/tools v0.3.0
+	golang.org/x/crypto v0.7.0
+	golang.org/x/sys v0.6.0
+	honnef.co/go/tools v0.4.2
 )
 
 require (
-	github.com/BurntSushi/toml v0.4.1 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20220218215828-6cf2b201936e // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
-	golang.org/x/tools v0.1.11-0.20220316014157-77aa08bb151a // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	github.com/BurntSushi/toml v1.2.1 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20221208152030-732eee02a75a // indirect
+	golang.org/x/mod v0.7.0 // indirect
+	golang.org/x/tools v0.4.1-0.20221208213631-3f74d914ae6d // indirect
 )
