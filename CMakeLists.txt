@@ -112,10 +112,10 @@ endif()
 
 if(CROSS_GOOS STREQUAL "windows")
     if(NOT EXISTS "${PROJECT_SOURCE_DIR}/gclpr.json")
-        configure_file("${PROJECT_SOURCE_DIR}/cmake/gclpr.json.in" "${PROJECT_SOURCE_DIR}/gclpr.json")
+        configure_file("${PROJECT_SOURCE_DIR}/cmake/gclpr.json.in" "${PROJECT_SOURCE_DIR}/gclpr.json" @ONLY)
     endif()
-    configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.rc.in" "${PROJECT_SOURCE_DIR}/cmd/gui/resources.rc")
-    configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.xml.in" "${PROJECT_SOURCE_DIR}/cmd/gui/manifest.xml")
+    configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.rc.in" "${PROJECT_SOURCE_DIR}/cmd/gui/resources.rc" @ONLY)
+    configure_file("${PROJECT_SOURCE_DIR}/cmake/gui.xml.in" "${PROJECT_SOURCE_DIR}/cmd/gui/manifest.xml" @ONLY)
 endif()
 
 message(STATUS "Building version \"${PRJ_VERSION_Major}.${PRJ_VERSION_Minor}.${PRJ_VERSION_Patch}\" git \"${GIT_HASH}\"")
@@ -149,6 +149,7 @@ endif()
 
 add_custom_target(release
     DEPENDS ${REL_DEPS}
+    COMMAND ${CMAKE_SOURCE_DIR}/cmake/scoophash.sh ${MSYSTEM_NAME}
     COMMENT "Building release..."
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 
