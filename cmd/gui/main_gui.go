@@ -13,10 +13,10 @@ import (
 
 	"github.com/allan-simon/go-singleinstance"
 
-	"gclpr/misc"
-	"gclpr/server"
-	"gclpr/systray"
-	"gclpr/util"
+	"github.com/rupor-github/gclpr/misc"
+	"github.com/rupor-github/gclpr/server"
+	"github.com/rupor-github/gclpr/systray"
+	"github.com/rupor-github/gclpr/util"
 )
 
 var (

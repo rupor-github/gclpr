@@ -175,7 +175,7 @@ if(CROSS_GOOS STREQUAL "windows")
         BYPRODUCTS ${PROJECT_BINARY_DIR}/gclpr-gui${CROSS_EXECUTABLE_SUFFIX}
         COMMAND ${GO_ENV} ${GO_EXECUTABLE} build ${GO_MOD_ARGS} -trimpath -o ${PROJECT_BINARY_DIR}/gclpr-gui${CROSS_EXECUTABLE_SUFFIX}
             -ldflags='-H=windowsgui'
-            gclpr/cmd/gui
+            github.com/rupor-github/gclpr/cmd/gui
         COMMENT "Building gclpr GUI..."
         WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 
@@ -200,7 +200,7 @@ if(CROSS_GOOS STREQUAL "windows")
 add_custom_target(bin_gclpr ALL
     BYPRODUCTS ${PROJECT_BINARY_DIR}/gclpr${CROSS_EXECUTABLE_SUFFIX}
     COMMAND ${GO_ENV} ${GO_EXECUTABLE} build ${GO_MOD_ARGS} -trimpath -o ${PROJECT_BINARY_DIR}/gclpr${CROSS_EXECUTABLE_SUFFIX}
-        gclpr/cmd/cli
+        github.com/rupor-github/gclpr/cmd/cli
         COMMENT "Building gclpr CLI..."
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}")
 

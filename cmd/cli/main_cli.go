@@ -19,9 +19,9 @@ import (
 
 	"golang.org/x/crypto/nacl/sign"
 
-	"gclpr/misc"
-	"gclpr/server"
-	"gclpr/util"
+	"github.com/rupor-github/gclpr/misc"
+	"github.com/rupor-github/gclpr/server"
+	"github.com/rupor-github/gclpr/util"
 )
 
 const (
