@@ -18,6 +18,11 @@ if [[ $? != 0 ]]; then
   exit 1
 fi
 
-# without the --exit-code 1 flag - trivy always exists with 0
 cd @PROJECT_SOURCE_DIR@
+# Check if we actually have commits to push
+commits=`git log @{u}..`
+if [ -z "$commits" ]; then
+    exit 0
+fi
+# without the --exit-code 1 flag - trivy always exists with 0
 ${scanner} --exit-code 1 fs --ignore-unfixed .
