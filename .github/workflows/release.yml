@@ -20,7 +20,7 @@ jobs:
       - name: Install resource compiler
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: binutils-mingw-w64-x86-64 binutils-mingw-w64-i686
+          packages: mingw-w64 binutils-mingw-w64-x86-64
           version: 1.0
    
       - name: Install Task
