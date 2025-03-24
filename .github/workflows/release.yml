@@ -34,7 +34,7 @@ jobs:
           go-version: '1.24.1'
 
       - name: Build everything
-        run: task release
+        run: task release -v
 
       - name: Sign release artifacts
         # After lunar this could be replaced with "apt install minisign"
