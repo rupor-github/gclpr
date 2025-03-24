@@ -4,7 +4,7 @@
 
 # run security/vulnerabilities scanner prior to pushing to repo
 
-scanner=$(command -v govulncheck || command -v trivy)
+scanner=$(command -v trivy || command -v govulncheck)
 if [ -z "${scanner}" ]; then
     echo "==== No suitable (govulncheck or trivy) vulnerabilities scanner is installed. Make sure it is installed and path is set correctly"
     echo
