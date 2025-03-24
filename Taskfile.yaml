@@ -15,6 +15,7 @@ vars:
 
   REF_VER: '{{regexFind "refs/tags/v[0-9]+\\.[0-9]+\\.?[0-9]*[-a-zA-Z0-9+]*" (env "GITHUB_REF")}}'
 
+  # presently only win64 is supported
   TARGET_RELEASES: [linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64-.exe]
 
   TATN: {sh: '{{if (env "TERM")}}tput setaf 4{{end}}'}
@@ -97,8 +98,6 @@ tasks:
     vars:
       BUILD_DIR: '{{.REL_BUILD_DIR}}_{{.GOOS}}_{{.GOARCH}}'
       REL_NAME: '{{.REL_BUILD_DIR}}/gclpr_win64'
-      RELAY:
-        sh: go tool -n npiperelay
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - defer: rm -rf {{.BUILD_DIR}}
@@ -109,8 +108,12 @@ tasks:
         vars: {GOOS: '{{.GOOS}}', GOARCH: '{{.GOARCH}}', FLAGS: 'release-gui', PACKAGE: './cmd/gui', TARGET: '{{.BUILD_DIR}}/gclpr-gui{{.SUFFIX}}'}
       - task: go-build
         vars: {GOOS: '{{.GOOS}}', GOARCH: '{{.GOARCH}}', FLAGS: 'release', PACKAGE: './cmd/cli', TARGET: '{{.BUILD_DIR}}/gclpr{{.SUFFIX}}'}
+      - GOOS={{.GOOS}} GOARCH={{.GOARCH}} go tool -n npiperelay >/dev/null
       - task: copy-file
-        vars: {SRC: '{{.RELAY}}', DST: '{{.BUILD_DIR}}/npiperelay{{.SUFFIX}}'}
+        vars:
+          SRC:
+            sh: go tool -n npiperelay
+          DST: '{{.BUILD_DIR}}/npiperelay{{.SUFFIX}}'
       - echo "{{.TATN}}Archiving release \"{{.REL_NAME}}.zip\"{{.TOFF}}"
       - 7z a -r -bd -bso0 -tzip {{.REL_NAME}} ./{{.BUILD_DIR}}/*
       - task: generate-scoop-json
