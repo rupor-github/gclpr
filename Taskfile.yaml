@@ -112,7 +112,7 @@ tasks:
       - task: copy-file
         vars:
           SRC:
-            sh: go tool -n npiperelay
+            sh: GOOS={{.GOOS}} GOARCH={{.GOARCH}} go tool -n npiperelay
           DST: '{{.BUILD_DIR}}/npiperelay{{.SUFFIX}}'
       - echo "{{.TATN}}Archiving release \"{{.REL_NAME}}.zip\"{{.TOFF}}"
       - 7z a -r -bd -bso0 -tzip {{.REL_NAME}} ./{{.BUILD_DIR}}/*
@@ -326,11 +326,11 @@ tasks:
                 {
                     VALUE "CompanyName",        "KOE-KAK Software.\0"
                     VALUE "FileDescription",    "GUI wrapper for gclpr\0"
-                    VALUE "FileVersion",        "@PRJ_VERSION_Major@.@PRJ_VERSION_Minor@.@PRJ_VERSION_Patch@.0\0"
+                    VALUE "FileVersion",        "{{.MAJOR}},{{.MINOR}},{{.PATCH}},0"
                     VALUE "LegalCopyright",     "Copyright © 2025 rupor-github\0"
                     VALUE "OriginalFilename",   "gclpr-gui.exe\0"
                     VALUE "ProductName",        "Simple Windows clipboard helper\0"
-                    VALUE "ProductVersion",     "@PRJ_VERSION_Major@.@PRJ_VERSION_Minor@.@PRJ_VERSION_Patch@.0\0"
+                    VALUE "ProductVersion",     "{{.MAJOR}},{{.MINOR}},{{.PATCH}},0"
                 }
             }
             BLOCK "VarFileInfo"
