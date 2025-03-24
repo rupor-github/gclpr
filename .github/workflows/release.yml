@@ -14,92 +14,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v3
-    - uses: awalsh128/cache-apt-pkgs-action@latest
-      with:
-        packages: binutils-mingw-w64-x86-64 binutils-mingw-w64-i686
-        version: 1.0
- 
-    - name: Ubuntu version
-      run: lsb_release -a
+      - name: Checkout sources
+        uses: actions/checkout@v4
 
-    - name: Get latest CMake and Ninja
-      uses: lukka/get-cmake@latest
-      with:
-        cmakeVersion: latest
-        ninjaVersion: latest
+      - name: Install resource compiler
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: binutils-mingw-w64-x86-64
+          version: 1.0
+   
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.20'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.1'
 
-    - name: Build - win32
-      env:
-        MSYSTEM_NAME: win32
-      run: |
-        cmake -G Ninja -B build_win32
-        cmake --build build_win32 --target release
+      - name: Build everything
+        run: task release
 
-    - name: Build - win64
-      env:
-        MSYSTEM_NAME: win64
-      run: |
-        cmake -G Ninja -B build_win64
-        cmake --build build_win64 --target release
+      - name: Sign release artifacts
+        # After lunar this could be replaced with "apt install minisign"
+        uses: thomasdesr/minisign-action@v1
+        with:
+          args: -Sm gclpr_*.zip
+          minisign_key: ${{ secrets.minisign_key }}
+          password: ${{ secrets.minisign_password }}
 
-    - name: Build - linux_amd64
-      env:
-        MSYSTEM_NAME: linux_amd64
-      run: |
-        cmake -G Ninja -B build_linux_amd64
-        cmake --build build_linux_amd64 --target release
+      - name: List results
+        run: ls -lah gclpr_*
 
-    - name: Build - linux_arm64
-      env:
-        MSYSTEM_NAME: linux_arm64
-      run: |
-        cmake -G Ninja -B build_linux_arm64
-        cmake --build build_linux_arm64 --target release
-
-    - name: Build - linux_i386
-      env:
-        MSYSTEM_NAME: linux_i386
-      run: |
-        cmake -G Ninja -B build_linux_i386
-        cmake --build build_linux_i386 --target release
-
-    - name: Build - darwin_amd64
-      env:
-        MSYSTEM_NAME: darwin_amd64
-      run: |
-        cmake -G Ninja -B build_darwin_amd64
-        cmake --build build_darwin_amd64 --target release
-
-    - name: Build - darwin_arm64
-      env:
-        MSYSTEM_NAME: darwin_arm64
-      run: |
-        cmake -G Ninja -B build_darwin_arm64
-        cmake --build build_darwin_arm64 --target release
-
-    - name: Sign release artifacts
-      # After lunar this could be replaced with "apt install minisign"
-      uses: thomasdesr/minisign-action@v1
-      with:
-        args: -Sm gclpr_*.zip
-        minisign_key: ${{ secrets.minisign_key }}
-        password: ${{ secrets.minisign_password }}
-
-    - name: List results
-      run: ls -lah gclpr_*
-
-    - name: Upload release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        generate_release_notes: true
-        files: |
-          gclpr.json
-          gclpr_*.zip
-          gclpr_*.minisig
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          generate_release_notes: true
+          files: |
+            gclpr.json
+            gclpr_*.zip
+            gclpr_*.minisig

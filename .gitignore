@@ -12,6 +12,7 @@
 
 # build specific
 build/
+release/
 build_*/
 misc/version.go
 cmd/*/resources.rc
