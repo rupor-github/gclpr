@@ -40,12 +40,12 @@ jobs:
         # After lunar this could be replaced with "apt install minisign"
         uses: thomasdesr/minisign-action@v1
         with:
-          args: -Sm gclpr_*.zip
+          args: -Sm release/gclpr_*.zip
           minisign_key: ${{ secrets.minisign_key }}
           password: ${{ secrets.minisign_password }}
 
       - name: List results
-        run: ls -lah gclpr_*
+        run: ls -lah release/
 
       - name: Upload release
         uses: softprops/action-gh-release@v2
@@ -54,5 +54,5 @@ jobs:
           generate_release_notes: true
           files: |
             gclpr.json
-            gclpr_*.zip
-            gclpr_*.minisig
+            release/gclpr_*.zip
+            release/gclpr_*.minisig
