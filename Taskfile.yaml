@@ -129,7 +129,7 @@ tasks:
     label: release-for-platform-linux-{{.GOOS}}-{{.GOARCH}}
     vars:
       BUILD_DIR: '{{.REL_BUILD_DIR}}_{{.GOOS}}_{{.GOARCH}}'
-      REL_NAME: '{{.REL_BUILD_DIR}}/gclpr-{{.GOOS}}-{{.GOARCH}}'
+      REL_NAME: '{{.REL_BUILD_DIR}}/gclpr_{{.GOOS}}_{{.GOARCH}}'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - defer: rm -rf {{.BUILD_DIR}}
@@ -148,7 +148,7 @@ tasks:
     label: release-for-platform-darwin-{{.GOOS}}-{{.GOARCH}}
     vars:
       BUILD_DIR: '{{.REL_BUILD_DIR}}_{{.GOOS}}_{{.GOARCH}}'
-      REL_NAME: '{{.REL_BUILD_DIR}}/gclpr-{{.GOOS}}-{{.GOARCH}}'
+      REL_NAME: '{{.REL_BUILD_DIR}}/gclpr_{{.GOOS}}_{{.GOARCH}}'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - defer: rm -rf {{.BUILD_DIR}}
