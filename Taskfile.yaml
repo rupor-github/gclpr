@@ -373,7 +373,7 @@ tasks:
             "license": "MIT",
             "architecture": {
                 "64bit": {
-                    "url": "https://github.com/rupor-github/gclpr/releases/download/v{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}/{{.TARGET}}",
+                    "url": "https://github.com/rupor-github/gclpr/releases/download/v{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}/{{base .TARGET}}",
                     "hash": "{{.HASH}}"
                 }
             },
@@ -383,7 +383,7 @@ tasks:
             "autoupdate": {
                 "architecture": {
                     "64bit": {
-                        "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/{{.TARGET}}"
+                        "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/{{base .TARGET}}"
                     }
                 }
             }
