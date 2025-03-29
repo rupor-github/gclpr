@@ -363,6 +363,9 @@ tasks:
       FILE: '{{.ROOT_DIR}}/gclpr.json'
       HASH:
         sh: sha256sum -z {{.TARGET}} | awk '{ print $1; }'
+    env:
+      # to put unexpanded "$version" in a file we need this
+      URL: 'https://github.com/rupor-github/gclpr/releases/download/v$version/{{base .TARGET}}'
     cmds:
       - |
         cat << EOF > {{.FILE}}
@@ -383,7 +386,7 @@ tasks:
             "autoupdate": {
                 "architecture": {
                     "64bit": {
-                        "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/{{base .TARGET}}"
+                        "url": "{{print "$URL"}}"
                     }
                 }
             }
