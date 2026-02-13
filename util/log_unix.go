@@ -8,7 +8,7 @@ import (
 )
 
 // NewLogWriter redirects all log output depending on debug parameter.
-// When true all output goes to OutputDebugString and you could use debugger or Sysinternals dbgview.exe to collect it.
+// When true all output goes to stderr.
 // When false - everything is discarded.
 func NewLogWriter(title string, flags int, debug bool) {
 

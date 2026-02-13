@@ -130,7 +130,7 @@ func Register(onReady func(), onExit func(), onSessionEvent func(SessionEvent)) 
 		systrayReady = func() {}
 	} else {
 		// Run onReady on separate goroutine to avoid blocking event loop
-		readyCh := make(chan interface{})
+		readyCh := make(chan struct{})
 		go func() {
 			<-readyCh
 			onReady()
@@ -284,6 +284,7 @@ func (item *MenuItem) update() {
 	addOrUpdateMenuItem(item)
 }
 
+// systrayMenuItemSelected dispatches a click event to the menu item with the given ID.
 func systrayMenuItemSelected(id uint32) {
 	menuItemsLock.RLock()
 	item, ok := menuItems[id]

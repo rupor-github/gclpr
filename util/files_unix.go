@@ -8,6 +8,8 @@ import (
 	"syscall"
 )
 
+// checkPermissions verifies that the file has acceptable ownership and permissions.
+// When readOK is false, the file must not be readable by group or others.
 func checkPermissions(fname string, readOK bool) error {
 
 	fi, err := os.Stat(fname)

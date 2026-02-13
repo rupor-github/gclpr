@@ -95,6 +95,7 @@ func (sc *secConn) Close() error {
 }
 
 // Serve handles backend rpc calls.
+// It uses rpc.DefaultServer internally, so it can only be called once per process.
 func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte, magic []byte, locked *int32, ioTimeout time.Duration) error {
 
 	if err := rpc.Register(NewURI()); err != nil {

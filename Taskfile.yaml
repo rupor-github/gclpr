@@ -232,17 +232,17 @@ tasks:
 
         var magic = []byte{'g', 'c', 'l', 'p', 'r', {{.MAJOR}}, {{.MINOR}}, {{.PATCH}}}
 
-        func GetMagic() []byte {
+        func Magic() []byte {
           out := make([]byte, len(magic))
           copy(out, magic)
           return out
         }
 
-        func GetVersion() string {
+        func Version() string {
             return "{{.VER}}"
         }
 
-        func GetGitHash() string {
+        func GitHash() string {
             return "{{.GIT_HASH}}{{if .GIT_STATUS}}*{{end}}"
         }
         EOF

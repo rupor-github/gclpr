@@ -40,6 +40,7 @@ type AccessAllowedAce struct {
 	SidStart   uint32
 }
 
+// getAce retrieves a pointer to an ACE at the given index from the ACL.
 func getAce(acl *Acl, index uint32, ace **AccessAllowedAce) error {
 	ret, _, err := procGetAce.Call(uintptr(unsafe.Pointer(acl)), uintptr(index), uintptr(unsafe.Pointer(ace)))
 	if ret == 0 {
@@ -48,6 +49,7 @@ func getAce(acl *Acl, index uint32, ace **AccessAllowedAce) error {
 	return nil
 }
 
+// getSid returns the SID for the given account name, or the current user's SID if name is empty.
 func getSid(name string) (*windows.SID, error) {
 
 	if len(name) == 0 {
@@ -65,6 +67,9 @@ func getSid(name string) (*windows.SID, error) {
 	return sid, nil
 }
 
+// checkPermissions verifies that the file has acceptable ownership and DACL permissions.
+// When readOK is false, only administrators, system, the current user, and TrustedInstaller
+// are allowed write access; all other ACEs are rejected.
 func checkPermissions(fname string, readOK bool) error {
 
 	fi, err := os.Stat(fname)

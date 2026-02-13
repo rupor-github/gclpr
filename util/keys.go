@@ -177,6 +177,7 @@ type part struct {
 	value []byte
 }
 
+// compute calculates a SHA-1 hash over S-expression encoded parts for GPG keygrip computation.
 func compute(parts []part) []byte {
 	h := new(bytes.Buffer)
 	for i := 0; i < len(parts); i++ {

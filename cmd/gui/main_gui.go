@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/allan-simon/go-singleinstance"
+	singleinstance "github.com/allan-simon/go-singleinstance"
 
 	"github.com/rupor-github/gclpr/misc"
 	"github.com/rupor-github/gclpr/server"
@@ -36,6 +36,7 @@ var (
 	cli         = flag.NewFlagSet(title, flag.ContinueOnError)
 )
 
+// onReady is called when the systray is ready; it sets up menu items and icon.
 func onReady() {
 
 	log.Print("Entering systray")
@@ -62,6 +63,7 @@ func onReady() {
 	}()
 }
 
+// onSession handles Windows session lock/unlock events.
 func onSession(e systray.SessionEvent) {
 	switch e {
 	case systray.SesLock:
@@ -74,12 +76,14 @@ func onSession(e systray.SessionEvent) {
 	}
 }
 
+// onExit is called when the systray is shutting down; it cancels the clipboard server.
 func onExit() {
 	// stop servicing clipboard and uri requests
 	clipCancel()
 	log.Print("Exiting systray")
 }
 
+// clipStart reads trusted keys and starts the RPC server in a background goroutine.
 func clipStart() error {
 
 	home, err := os.UserHomeDir()
@@ -103,13 +107,14 @@ func clipStart() error {
 		if aUnlocked {
 			locked = nil // ignore session messages
 		}
-		if err := server.Serve(clipCtx, aPort, aLE, pkeys, misc.GetMagic(), locked, aIOTimeout); err != nil {
+		if err := server.Serve(clipCtx, aPort, aLE, pkeys, misc.Magic(), locked, aIOTimeout); err != nil {
 			log.Printf("gclpr serve() returned error: %s", err.Error())
 		}
 	}()
 	return nil
 }
 
+// buildUsageString renders the CLI usage/help text into a string.
 func buildUsageString() string {
 	var buf = new(strings.Builder)
 	cli.SetOutput(buf)
@@ -118,7 +123,7 @@ func buildUsageString() string {
 
 Version:
     %s (%s) %s
-`, tooltip, misc.GetVersion(), runtime.Version(), misc.GetGitHash())
+`, tooltip, misc.Version(), runtime.Version(), misc.GitHash())
 
 	fmt.Fprintf(buf, `
 Usage:

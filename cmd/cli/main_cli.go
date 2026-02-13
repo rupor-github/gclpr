@@ -81,6 +81,8 @@ var (
 	reCopy  = regexp.MustCompile(`/?pbcopy$`)
 )
 
+// getCommand determines the command from args, either by matching the binary name
+// (aliased as xdg-open, pbpaste, pbcopy) or by parsing an explicit subcommand.
 func getCommand(args []string) (cmd command, aliased bool, err error) {
 
 	aliased = true
@@ -125,6 +127,7 @@ func getCommand(args []string) (cmd command, aliased bool, err error) {
 	return
 }
 
+// processCommandLine parses the full command line, extracting the command and its arguments.
 func processCommandLine(args []string) (cmd command, err error) {
 
 	var aliased bool
@@ -185,7 +188,7 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 }
 
 func (sc *secConn) Write(p []byte) (n int, err error) {
-	header := append(misc.GetMagic(), sc.hpk[:]...)
+	header := append(misc.Magic(), sc.hpk[:]...)
 	out := sign.Sign(header, p, sc.k)
 	if err = util.WriteFrame(sc.conn, out); err != nil {
 		return 0, err
@@ -197,6 +200,7 @@ func (sc *secConn) Close() error {
 	return sc.conn.Close()
 }
 
+// doRPC reads keys, connects to the server, and executes the given RPC operation.
 func doRPC(home string, op func(*rpc.Client) error) error {
 
 	pk, k, err := util.ReadKeys(home)
@@ -222,6 +226,7 @@ func doRPC(home string, op func(*rpc.Client) error) error {
 	return nil
 }
 
+// run executes the CLI application and returns an exit code.
 func run() int {
 
 	cmd, err := processCommandLine(os.Args)
@@ -286,7 +291,7 @@ func run() int {
 				log.Printf("\t%s [%s]\n", hex.EncodeToString(v[:]), hex.EncodeToString(k[:]))
 			}
 			// we never break this
-			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.GetMagic(), nil, aIOTimeout)
+			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.Magic(), nil, aIOTimeout)
 		}
 	default:
 		err = errors.New("this should never happen")
@@ -316,7 +321,7 @@ gclpr - copy, paste text and open browser over localhost TCP interface
 
 Version:
     %s (%s) %s
-`, misc.GetVersion(), runtime.Version(), misc.GetGitHash())
+`, misc.Version(), runtime.Version(), misc.GitHash())
 
 		fmt.Fprintf(&buf, `
 Usage:

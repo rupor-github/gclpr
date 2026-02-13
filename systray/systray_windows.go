@@ -126,6 +126,7 @@ type notifyIconData struct {
 	BalloonIcon                windows.Handle
 }
 
+// add adds the notification icon to the system tray via Shell_NotifyIcon(NIM_ADD).
 func (nid *notifyIconData) add() error {
 	const NIM_ADD = 0x00000000
 	res, _, err := pShellNotifyIcon.Call(
@@ -138,6 +139,7 @@ func (nid *notifyIconData) add() error {
 	return nil
 }
 
+// modify updates the notification icon via Shell_NotifyIcon(NIM_MODIFY).
 func (nid *notifyIconData) modify() error {
 	const NIM_MODIFY = 0x00000001
 	res, _, err := pShellNotifyIcon.Call(
@@ -150,6 +152,7 @@ func (nid *notifyIconData) modify() error {
 	return nil
 }
 
+// delete removes the notification icon via Shell_NotifyIcon(NIM_DELETE).
 func (nid *notifyIconData) delete() error {
 	const NIM_DELETE = 0x00000002
 	res, _, err := pShellNotifyIcon.Call(
@@ -347,6 +350,7 @@ func (t *winTray) wndProc(hWnd windows.Handle, message uint32, wParam, lParam ui
 	return
 }
 
+// initInstance creates the hidden window, registers the window class, and adds the notification icon.
 func (t *winTray) initInstance() error {
 	const IDI_APPLICATION = 32512
 	const IDC_ARROW = 32512 // Standard arrow
@@ -479,6 +483,7 @@ func (t *winTray) initInstance() error {
 	return t.nid.add()
 }
 
+// createMenu creates the popup context menu for the tray icon.
 func (t *winTray) createMenu() error {
 	const MIM_APPLYTOSUBMENUS = 0x80000000 // Settings apply to the menu and all of its submenus
 
@@ -509,6 +514,7 @@ func (t *winTray) createMenu() error {
 	return nil
 }
 
+// convertToSubMenu converts an existing menu item into a submenu parent.
 func (t *winTray) convertToSubMenu(menuItemId uint32) (windows.Handle, error) {
 	const MIIM_SUBMENU = 0x00000004
 
@@ -538,6 +544,7 @@ func (t *winTray) convertToSubMenu(menuItemId uint32) (windows.Handle, error) {
 	return menu, nil
 }
 
+// addOrUpdateMenuItem inserts a new menu item or updates an existing one by ID.
 func (t *winTray) addOrUpdateMenuItem(menuItemId uint32, parentId uint32, title string, disabled, checked bool) error {
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms647578(v=vs.85).aspx
 	const (
@@ -623,6 +630,7 @@ func (t *winTray) addOrUpdateMenuItem(menuItemId uint32, parentId uint32, title 
 	return nil
 }
 
+// addSeparatorMenuItem inserts a separator bar into the menu.
 func (t *winTray) addSeparatorMenuItem(menuItemId, parentId uint32) error {
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms647578(v=vs.85).aspx
 	const (
@@ -658,6 +666,7 @@ func (t *winTray) addSeparatorMenuItem(menuItemId, parentId uint32) error {
 	return nil
 }
 
+// hideMenuItem removes a menu item from the visible menu by command ID.
 func (t *winTray) hideMenuItem(menuItemId, parentId uint32) error {
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms647629(v=vs.85).aspx
 	const MF_BYCOMMAND = 0x00000000
@@ -678,6 +687,7 @@ func (t *winTray) hideMenuItem(menuItemId, parentId uint32) error {
 	return nil
 }
 
+// showMenu displays the popup context menu at the current cursor position.
 func (t *winTray) showMenu() error {
 	const (
 		TPM_BOTTOMALIGN = 0x0020
@@ -706,6 +716,7 @@ func (t *winTray) showMenu() error {
 	return nil
 }
 
+// delFromVisibleItems removes a menu item ID from the visible items tracking list.
 func (t *winTray) delFromVisibleItems(parent, val uint32) {
 	t.muVisibleItems.Lock()
 	defer t.muVisibleItems.Unlock()
@@ -719,6 +730,7 @@ func (t *winTray) delFromVisibleItems(parent, val uint32) {
 	t.visibleItems[parent] = visibleItems
 }
 
+// addToVisibleItems adds a menu item ID to the sorted visible items tracking list.
 func (t *winTray) addToVisibleItems(parent, val uint32) {
 	t.muVisibleItems.Lock()
 	defer t.muVisibleItems.Unlock()
@@ -731,6 +743,7 @@ func (t *winTray) addToVisibleItems(parent, val uint32) {
 	}
 }
 
+// getVisibleItemIndex returns the index of a menu item in the visible items list, or -1 if not found.
 func (t *winTray) getVisibleItemIndex(parent, val uint32) int {
 	t.muVisibleItems.RLock()
 	defer t.muVisibleItems.RUnlock()
@@ -798,6 +811,7 @@ func (t *winTray) loadIconFromResource(resID uint32) (windows.Handle, error) {
 	return windows.Handle(res), nil
 }
 
+// iconToBitmap converts an icon handle to a bitmap handle suitable for menu items.
 func (t *winTray) iconToBitmap(hIcon windows.Handle) (windows.Handle, error) {
 	const SM_CXSMICON = 49
 	const SM_CYSMICON = 50
@@ -827,6 +841,7 @@ func (t *winTray) iconToBitmap(hIcon windows.Handle) (windows.Handle, error) {
 	return windows.Handle(hMemBmp), nil
 }
 
+// registerSystray initializes the tray window and creates the context menu.
 func registerSystray() {
 	if err := wt.initInstance(); err != nil {
 		log.Printf("Unable to init instance: %v", err)
@@ -839,6 +854,7 @@ func registerSystray() {
 	}
 }
 
+// nativeLoop runs the Windows message pump until WM_QUIT is received.
 func nativeLoop() {
 	// Main message pump.
 	m := &struct {
@@ -869,6 +885,7 @@ func nativeLoop() {
 	}
 }
 
+// quit posts WM_CLOSE to the tray window to initiate shutdown.
 func quit() {
 	const WM_CLOSE = 0x0010
 
@@ -888,6 +905,7 @@ func MakeIntResource(i int16) []byte {
 	return b
 }
 
+// IntResource extracts a resource ID from a byte slice created by MakeIntResource.
 func IntResource(b []byte) uint32 {
 	if len(b) == 4 {
 		resID := binary.LittleEndian.Uint32(b)
@@ -898,6 +916,7 @@ func IntResource(b []byte) uint32 {
 	return 0
 }
 
+// iconBytesToFilePath writes icon bytes to a temp file (keyed by MD5 hash) and returns the path.
 func iconBytesToFilePath(iconBytes []byte) (string, error) {
 	bh := md5.Sum(iconBytes)
 	dataHash := hex.EncodeToString(bh[:])
@@ -946,6 +965,7 @@ func SetTitle(title string) {
 	// do nothing
 }
 
+// parentId returns the ID of the parent menu item, or 0 for top-level items.
 func (item *MenuItem) parentId() uint32 {
 	if item.parent != nil {
 		return uint32(item.parent.id)
@@ -1001,6 +1021,7 @@ func SetTooltip(tooltip string) {
 	}
 }
 
+// addOrUpdateMenuItem is the package-level wrapper that delegates to winTray.addOrUpdateMenuItem.
 func addOrUpdateMenuItem(item *MenuItem) {
 	err := wt.addOrUpdateMenuItem(uint32(item.id), item.parentId(), item.title, item.disabled, item.checked)
 	if err != nil {
@@ -1017,6 +1038,7 @@ func (item *MenuItem) SetTemplateIcon(templateIconBytes []byte, regularIconBytes
 	item.SetIcon(regularIconBytes)
 }
 
+// addSeparator adds a separator to the top-level menu.
 func addSeparator(id uint32) {
 	err := wt.addSeparatorMenuItem(id, 0)
 	if err != nil {
@@ -1025,6 +1047,7 @@ func addSeparator(id uint32) {
 	}
 }
 
+// hideMenuItem removes a menu item from the visible menu.
 func hideMenuItem(item *MenuItem) {
 	err := wt.hideMenuItem(uint32(item.id), item.parentId())
 	if err != nil {
@@ -1033,6 +1056,7 @@ func hideMenuItem(item *MenuItem) {
 	}
 }
 
+// showMenuItem re-adds a previously hidden menu item.
 func showMenuItem(item *MenuItem) {
 	addOrUpdateMenuItem(item)
 }
