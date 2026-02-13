@@ -41,9 +41,9 @@ type AccessAllowedAce struct {
 }
 
 func getAce(acl *Acl, index uint32, ace **AccessAllowedAce) error {
-	ret, _, _ := procGetAce.Call(uintptr(unsafe.Pointer(acl)), uintptr(index), uintptr(unsafe.Pointer(ace)))
-	if int(ret) != 0 {
-		return windows.GetLastError()
+	ret, _, err := procGetAce.Call(uintptr(unsafe.Pointer(acl)), uintptr(index), uintptr(unsafe.Pointer(ace)))
+	if ret == 0 {
+		return err
 	}
 	return nil
 }
