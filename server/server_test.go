@@ -98,11 +98,12 @@ func startTestServer(t *testing.T, pkeys map[[32]byte][32]byte) (string, func())
 			go func() {
 				defer wg.Done()
 				sc := &secConn{
-					conn:   conn,
-					br:     bufio.NewReader(conn),
-					pkeys:  pkeys,
-					magic:  magic,
-					locked: nil,
+					conn:      conn,
+					br:        bufio.NewReader(conn),
+					pkeys:     pkeys,
+					magic:     magic,
+					locked:    nil,
+					ioTimeout: 0, // no timeout in tests
 				}
 				defer sc.Close()
 				srv.ServeConn(sc)

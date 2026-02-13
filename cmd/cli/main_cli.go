@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/nacl/sign"
 
@@ -66,12 +67,14 @@ func (c command) String() string {
 }
 
 var (
-	aPort  int
-	aLE    string
-	aHelp  bool
-	aDebug bool
-	aData  string
-	cli    = flag.NewFlagSet("gclpr", flag.ContinueOnError)
+	aPort           int
+	aLE             string
+	aHelp           bool
+	aDebug          bool
+	aData           string
+	aConnectTimeout time.Duration
+	aIOTimeout      time.Duration
+	cli             = flag.NewFlagSet("gclpr", flag.ContinueOnError)
 )
 
 func getCommand(args []string) (cmd command, aliased bool, err error) {
@@ -196,10 +199,12 @@ func doRPC(home string, op func(*rpc.Client) error) error {
 	if err != nil {
 		return err
 	}
+	defer util.ZeroBytes(k[:])
+
 	hpk := sha256.Sum256(pk[:])
 
 	var conn net.Conn
-	conn, err = net.Dial("tcp", fmt.Sprintf("localhost:%d", aPort))
+	conn, err = net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", aPort), aConnectTimeout)
 	if err != nil {
 		return err
 	}
@@ -277,7 +282,7 @@ func run() int {
 				log.Printf("\t%s [%s]\n", hex.EncodeToString(v[:]), hex.EncodeToString(k[:]))
 			}
 			// we never break this
-			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.GetMagic(), nil)
+			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.GetMagic(), nil, aIOTimeout)
 		}
 	default:
 		err = errors.New("this should never happen")
@@ -295,6 +300,8 @@ func main() {
 	cli.BoolVar(&aHelp, "help", false, "Show help")
 	cli.IntVar(&aPort, "port", server.DefaultPort, "TCP port number")
 	cli.StringVar(&aLE, "line-ending", "", "Convert Line Endings (LF/CRLF)")
+	cli.DurationVar(&aConnectTimeout, "connect-timeout", server.DefaultConnectTimeout, "TCP connection timeout")
+	cli.DurationVar(&aIOTimeout, "timeout", server.DefaultIOTimeout, "Read/write I/O timeout")
 	cli.BoolVar(&aDebug, "debug", false, "Print debugging information")
 
 	cli.Usage = func() {

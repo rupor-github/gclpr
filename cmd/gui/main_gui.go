@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/allan-simon/go-singleinstance"
 
@@ -25,6 +26,7 @@ var (
 	aHelp       bool
 	aUnlocked   bool
 	aDebug      bool
+	aIOTimeout  time.Duration
 	usageString string
 	lock        int32
 	clipCancel  context.CancelFunc
@@ -101,7 +103,7 @@ func clipStart() error {
 		if aUnlocked {
 			locked = nil // ignore session messages
 		}
-		if err := server.Serve(clipCtx, aPort, aLE, pkeys, misc.GetMagic(), locked); err != nil {
+		if err := server.Serve(clipCtx, aPort, aLE, pkeys, misc.GetMagic(), locked, aIOTimeout); err != nil {
 			log.Printf("gclpr serve() returned error: %s", err.Error())
 		}
 	}()
@@ -137,6 +139,7 @@ func main() {
 	cli.BoolVar(&aHelp, "help", false, "Show help")
 	cli.IntVar(&aPort, "port", server.DefaultPort, "TCP port number")
 	cli.StringVar(&aLE, "line-ending", "", "Convert Line Endings (LF/CRLF)")
+	cli.DurationVar(&aIOTimeout, "timeout", server.DefaultIOTimeout, "Read/write I/O timeout")
 	cli.BoolVar(&aUnlocked, "ignore-session-lock", false, "Continue to access clipboard inside locked session")
 	cli.BoolVar(&aDebug, "debug", false, "Print debugging information")
 

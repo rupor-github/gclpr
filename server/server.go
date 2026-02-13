@@ -12,25 +12,35 @@ import (
 	"net/rpc"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/crypto/nacl/sign"
 
 	"github.com/rupor-github/gclpr/util"
 )
 
-const DefaultPort = 2850
+const (
+	DefaultPort           = 2850
+	DefaultConnectTimeout = 10 * time.Second
+	DefaultIOTimeout      = 30 * time.Second
+)
 
 type secConn struct {
-	conn   net.Conn
-	br     *bufio.Reader
-	pkeys  map[[32]byte][32]byte
-	magic  []byte
-	locked *int32
+	conn      net.Conn
+	br        *bufio.Reader
+	pkeys     map[[32]byte][32]byte
+	magic     []byte
+	locked    *int32
+	ioTimeout time.Duration
 }
 
 func (sc *secConn) Read(p []byte) (n int, err error) {
 
 	var hpk, pk [32]byte
+
+	if sc.ioTimeout > 0 {
+		sc.conn.SetReadDeadline(time.Now().Add(sc.ioTimeout))
+	}
 
 	in, err := util.ReadFrame(sc.br)
 	if err != nil {
@@ -71,6 +81,9 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 }
 
 func (sc *secConn) Write(p []byte) (n int, err error) {
+	if sc.ioTimeout > 0 {
+		sc.conn.SetWriteDeadline(time.Now().Add(sc.ioTimeout))
+	}
 	if err = util.WriteFrame(sc.conn, p); err != nil {
 		return 0, err
 	}
@@ -82,7 +95,7 @@ func (sc *secConn) Close() error {
 }
 
 // Serve handles backend rpc calls.
-func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte, magic []byte, locked *int32) error {
+func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte, magic []byte, locked *int32, ioTimeout time.Duration) error {
 
 	if err := rpc.Register(NewURI()); err != nil {
 		return fmt.Errorf("unable to register URI rpc object: %w", err)
@@ -125,11 +138,12 @@ func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte
 			rpc.ServeConn(sc)
 			log.Printf("gclpr server handled request from '%s'", sc.conn.RemoteAddr())
 		}(&secConn{
-			conn:   conn,
-			br:     bufio.NewReader(conn),
-			pkeys:  pkeys,
-			magic:  magic,
-			locked: locked,
+			conn:      conn,
+			br:        bufio.NewReader(conn),
+			pkeys:     pkeys,
+			magic:     magic,
+			locked:    locked,
+			ioTimeout: ioTimeout,
 		})
 	}
 }

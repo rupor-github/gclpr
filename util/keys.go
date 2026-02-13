@@ -14,6 +14,11 @@ import (
 	"golang.org/x/crypto/nacl/sign"
 )
 
+// ZeroBytes overwrites a byte slice with zeros.
+func ZeroBytes(b []byte) {
+	clear(b)
+}
+
 // ReadKeys returns previously generated key pair (client).
 func ReadKeys(home string) (*[32]byte, *[64]byte, error) {
 
@@ -54,8 +59,10 @@ func ReadKeys(home string) (*[32]byte, *[64]byte, error) {
 
 	var pk [32]byte
 	copy(pk[:], pubkey)
+	ZeroBytes(pubkey)
 	var k [64]byte
 	copy(k[:], key)
+	ZeroBytes(key)
 	return &pk, &k, nil
 }
 

@@ -1,10 +1,14 @@
 package server
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/atotto/clipboard"
 )
+
+// MaxClipboardSize is the maximum allowed clipboard payload size (1 MiB).
+const MaxClipboardSize = 1 << 20
 
 // Clipboard is used to rpc clipboard content.
 type Clipboard struct {
@@ -19,6 +23,9 @@ func NewClipboard(le string) *Clipboard {
 // Copy is implementation of rpc "copy" command.
 func (c *Clipboard) Copy(text string, _ *struct{}) error {
 	log.Printf("Copy request received len: %d\n", len(text))
+	if len(text) > MaxClipboardSize {
+		return fmt.Errorf("clipboard payload size %d exceeds maximum %d", len(text), MaxClipboardSize)
+	}
 	return clipboard.WriteAll(ConvertLE(text, c.leOP))
 }
 
