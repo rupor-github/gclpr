@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -162,22 +163,27 @@ func processCommandLine(args []string) (cmd command, err error) {
 
 type secConn struct {
 	conn net.Conn
+	br   *bufio.Reader
 	hpk  [32]byte
 	k    *[64]byte
 }
 
 func (sc *secConn) Read(p []byte) (n int, err error) {
-	return sc.conn.Read(p)
+	data, err := util.ReadFrame(sc.br)
+	if err != nil {
+		return 0, err
+	}
+	copy(p, data)
+	return len(data), nil
 }
 
 func (sc *secConn) Write(p []byte) (n int, err error) {
 	header := append(misc.GetMagic(), sc.hpk[:]...)
 	out := sign.Sign(header, p, sc.k)
-	n, err = sc.conn.Write(out)
-	if err == nil {
-		n = len(p)
+	if err = util.WriteFrame(sc.conn, out); err != nil {
+		return 0, err
 	}
-	return
+	return len(p), nil
 }
 
 func (sc *secConn) Close() error {
@@ -198,7 +204,7 @@ func doRPC(home string, op func(*rpc.Client) error) error {
 		return err
 	}
 
-	rc := rpc.NewClient(&secConn{conn: conn, hpk: hpk, k: k})
+	rc := rpc.NewClient(&secConn{conn: conn, br: bufio.NewReader(conn), hpk: hpk, k: k})
 	defer rc.Close()
 
 	if err = op(rc); err != nil {

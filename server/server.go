@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -13,12 +14,15 @@ import (
 	"sync/atomic"
 
 	"golang.org/x/crypto/nacl/sign"
+
+	"github.com/rupor-github/gclpr/util"
 )
 
 const DefaultPort = 2850
 
 type secConn struct {
 	conn   net.Conn
+	br     *bufio.Reader
 	pkeys  map[[32]byte][32]byte
 	magic  []byte
 	locked *int32
@@ -26,14 +30,11 @@ type secConn struct {
 
 func (sc *secConn) Read(p []byte) (n int, err error) {
 
-	var (
-		hpk, pk [32]byte
-		in      = make([]byte, len(p)+len(hpk)+len(sc.magic)+sign.Overhead)
-	)
+	var hpk, pk [32]byte
 
-	n, err = sc.conn.Read(in)
+	in, err := util.ReadFrame(sc.br)
 	if err != nil {
-		return
+		return 0, err
 	}
 
 	if sc.locked != nil && atomic.LoadInt32(sc.locked) == 1 {
@@ -41,21 +42,18 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	if n <= len(sc.magic)+len(hpk)+sign.Overhead {
-		log.Printf("Message is too short: %d", n)
+	if len(in) <= len(sc.magic)+len(hpk)+sign.Overhead {
+		log.Printf("Message is too short: %d", len(in))
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	magic := make([]byte, len(sc.magic))
-	copy(magic, in[0:len(magic)])
-
 	// check first 6 bytes of magic - signature and major version number
-	if !bytes.Equal(magic[0:6], sc.magic[0:6]) {
-		log.Printf("Bad signature or incompatible versions: server [%x], client [%x]", sc.magic, magic)
+	if !bytes.Equal(in[0:6], sc.magic[0:6]) {
+		log.Printf("Bad signature or incompatible versions: server [%x], client [%x]", sc.magic, in[0:len(sc.magic)])
 		return 0, rpc.ErrShutdown
 	}
 
-	copy(hpk[:], in[len(magic):len(magic)+len(hpk)])
+	copy(hpk[:], in[len(sc.magic):len(sc.magic)+len(hpk)])
 
 	var ok bool
 	if pk, ok = sc.pkeys[hpk]; !ok {
@@ -63,7 +61,7 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 		return 0, rpc.ErrShutdown
 	}
 
-	out, ok := sign.Open([]byte{}, in[len(magic)+len(hpk):n], &pk)
+	out, ok := sign.Open([]byte{}, in[len(sc.magic)+len(hpk):], &pk)
 	if !ok {
 		log.Printf("Call fails verification with key: %s", hex.EncodeToString(pk[:]))
 		return 0, rpc.ErrShutdown
@@ -73,7 +71,10 @@ func (sc *secConn) Read(p []byte) (n int, err error) {
 }
 
 func (sc *secConn) Write(p []byte) (n int, err error) {
-	return sc.conn.Write(p)
+	if err = util.WriteFrame(sc.conn, p); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 func (sc *secConn) Close() error {
@@ -125,6 +126,7 @@ func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte
 			log.Printf("gclpr server handled request from '%s'", sc.conn.RemoteAddr())
 		}(&secConn{
 			conn:   conn,
+			br:     bufio.NewReader(conn),
 			pkeys:  pkeys,
 			magic:  magic,
 			locked: locked,
