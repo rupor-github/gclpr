@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/rpc"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -126,7 +126,7 @@ func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			if !strings.Contains(err.Error(), "use of closed network connection") {
+			if !errors.Is(err, net.ErrClosed) {
 				return fmt.Errorf("gclpr server is unable to accept requests: %w", err)
 			}
 			log.Print("gclpr server is shutting down\n")

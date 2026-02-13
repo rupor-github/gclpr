@@ -307,15 +307,16 @@ func TestRPCBadMagic(t *testing.T) {
 		t.Fatalf("WriteFrame: %v", err)
 	}
 
-	// Server should reject -- client read should get an error
+	// Server should reject -- client read should get an error.
+	// The server closes the connection on bad magic,
+	// so we may get EOF or a connection reset.
+	// Try reading again if the first read succeeds -- at least one read should fail.
 	buf := make([]byte, 1024)
 	_, err = conn.Read(buf)
 	if err == nil {
-		// The server closes the connection on bad magic,
-		// so we may get EOF or a connection reset.
-		// Try reading again -- at least one read should fail.
 		_, err = conn.Read(buf)
 	}
-	// We expect some kind of error (EOF, connection reset, etc.)
-	// The key assertion is that the RPC call did NOT succeed.
+	if err == nil {
+		t.Error("expected error reading from rejected connection, got nil")
+	}
 }

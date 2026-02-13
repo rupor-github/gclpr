@@ -45,6 +45,7 @@ tasks:
         vars: {GOOS: 'windows', GOARCH: 'amd64', FLAGS: 'debug-gui', PACKAGE: './cmd/gui', TARGET: '{{.BUILD_DIR}}/gclpr-gui.exe'}
       - task: go-build
         vars: {GOOS: 'windows', GOARCH: 'amd64', FLAGS: 'debug', PACKAGE: './cmd/cli', TARGET: '{{.BUILD_DIR}}/gclpr.exe'}
+      - task: compile-all-tests
       - task: lint
 
   test:
@@ -164,7 +165,24 @@ tasks:
         sh: go tool -n staticcheck
     cmds:
       - echo "{{.TATN}}Linting project{{.TOFF}}"
-      - GOOS=windows {{.LINTER}} -f stylish -tests=false ./...
+      - GOOS=windows {{.LINTER}} -f stylish -tests=true ./...
+    sources:
+      - ./Taskfile.yaml
+      - ./**/*.go
+
+  compile-all-tests:
+    internal: true
+    desc: Makes sure that tests could be compiled successfully
+    env:
+      # We have some tests where CGO is being used
+      CGO_ENABLED: '1'
+    vars:
+      DIRS_WITH_TESTS:
+        sh: find -name '*_test.go' -printf "%h\n" | sort -u
+    cmds:
+      - echo "{{.TATN}}Check compiling all availble tests{{.TOFF}}"
+      - for: {var: DIRS_WITH_TESTS, as: DIR}
+        cmd: go test -mod=mod -c -o /dev/null '{{.DIR}}'
     sources:
       - ./**/*.go
 
@@ -212,8 +230,12 @@ tasks:
         cat << EOF > {{.FILE}}
         package misc
 
+        var magic = []byte{'g', 'c', 'l', 'p', 'r', {{.MAJOR}}, {{.MINOR}}, {{.PATCH}}}
+
         func GetMagic() []byte {
-          return []byte{'g', 'c', 'l', 'p', 'r', {{.MAJOR}}, {{.MINOR}}, {{.PATCH}}}
+          out := make([]byte, len(magic))
+          copy(out, magic)
+          return out
         }
 
         func GetVersion() string {

@@ -75,6 +75,10 @@ var (
 	aConnectTimeout time.Duration
 	aIOTimeout      time.Duration
 	cli             = flag.NewFlagSet("gclpr", flag.ContinueOnError)
+
+	reOpen  = regexp.MustCompile(`/?xdg-open$`)
+	rePaste = regexp.MustCompile(`/?pbpaste$`)
+	reCopy  = regexp.MustCompile(`/?pbcopy$`)
 )
 
 func getCommand(args []string) (cmd command, aliased bool, err error) {
@@ -82,13 +86,13 @@ func getCommand(args []string) (cmd command, aliased bool, err error) {
 	aliased = true
 
 	switch {
-	case regexp.MustCompile(`/?xdg-open$`).MatchString(args[0]):
+	case reOpen.MatchString(args[0]):
 		cmd = cmdOpen
 		return
-	case regexp.MustCompile(`/?pbpaste$`).MatchString(args[0]):
+	case rePaste.MatchString(args[0]):
 		cmd = cmdPaste
 		return
-	case regexp.MustCompile(`/?pbcopy$`).MatchString(args[0]):
+	case reCopy.MatchString(args[0]):
 		cmd = cmdCopy
 		return
 	default:

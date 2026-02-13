@@ -147,20 +147,6 @@ func ReadTrustedKeys(home string) (map[[32]byte][32]byte, error) {
 	return res, nil
 }
 
-func min(a, b int) int {
-	if a > b {
-		return b
-	}
-	return a
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // ----------------------------------------------------------------------------
 // Rest of the code calculates GnuPG compatible keygrip for ed25519 public key
 // We may want to sent it out instead of public key itself one day.
@@ -206,13 +192,20 @@ func compute(parts []part) []byte {
 
 // GPGKeyGripED25519 computes GPG keygrip for Ed25519 public keys.
 func GPGKeyGripED25519(pk [32]byte) []byte {
+	p := bignum2bytes(ed25519_p, 32)
+	b := bignum2bytes(ed25519_b, 32)
+	g := bignum2bytes(ed25519_g, 65)
+	n := bignum2bytes(ed25519_n, 32)
+	if p == nil || b == nil || g == nil || n == nil {
+		return nil
+	}
 	return compute(
 		[]part{
-			{name: "p", value: bignum2bytes(ed25519_p, 32)},
+			{name: "p", value: p},
 			{name: "a", value: []byte{1}},
-			{name: "b", value: bignum2bytes(ed25519_b, 32)},
-			{name: "g", value: bignum2bytes(ed25519_g, 65)},
-			{name: "n", value: bignum2bytes(ed25519_n, 32)},
+			{name: "b", value: b},
+			{name: "g", value: g},
+			{name: "n", value: n},
 			{name: "q", value: pk[:]},
 		},
 	)

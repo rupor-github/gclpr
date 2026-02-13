@@ -81,8 +81,16 @@ func ShowOKMessage(t MsgType, title, text string) {
 
 	log.Print(text)
 
+	pText, err := windows.UTF16PtrFromString(text)
+	if err != nil {
+		return
+	}
+	pTitle, err := windows.UTF16PtrFromString(title)
+	if err != nil {
+		return
+	}
 	_, _, _ = pMessageBox.Call(0,
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(text))),
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(title))),
+		uintptr(unsafe.Pointer(pText)),
+		uintptr(unsafe.Pointer(pTitle)),
 		uintptr(t))
 }

@@ -73,6 +73,8 @@ type MenuItem struct {
 	// ClickedCh is the channel which will be notified when the menu item is clicked
 	ClickedCh chan struct{}
 
+	// mu protects mutable fields below from concurrent access
+	mu sync.Mutex
 	// id uniquely identify a menu item, not supposed to be modified
 	id uint32
 	// title is the text shown on menu item
@@ -90,6 +92,8 @@ type MenuItem struct {
 }
 
 func (item *MenuItem) String() string {
+	item.mu.Lock()
+	defer item.mu.Unlock()
 	if item.parent == nil {
 		return fmt.Sprintf("MenuItem[%d, %q]", item.id, item.title)
 	}
@@ -200,30 +204,40 @@ func (item *MenuItem) AddSubMenuItemCheckbox(title string, tooltip string, check
 
 // SetTitle set the text to display on a menu item.
 func (item *MenuItem) SetTitle(title string) {
+	item.mu.Lock()
 	item.title = title
+	item.mu.Unlock()
 	item.update()
 }
 
 // SetTooltip set the tooltip to show when mouse hover.
 func (item *MenuItem) SetTooltip(tooltip string) {
+	item.mu.Lock()
 	item.tooltip = tooltip
+	item.mu.Unlock()
 	item.update()
 }
 
 // Disabled checks if the menu item is disabled.
 func (item *MenuItem) Disabled() bool {
+	item.mu.Lock()
+	defer item.mu.Unlock()
 	return item.disabled
 }
 
 // Enable a menu item regardless if it's previously enabled or not.
 func (item *MenuItem) Enable() {
+	item.mu.Lock()
 	item.disabled = false
+	item.mu.Unlock()
 	item.update()
 }
 
 // Disable a menu item regardless if it's previously disabled or not.
 func (item *MenuItem) Disable() {
+	item.mu.Lock()
 	item.disabled = true
+	item.mu.Unlock()
 	item.update()
 }
 
@@ -239,18 +253,24 @@ func (item *MenuItem) Show() {
 
 // Checked returns if the menu item has a check mark.
 func (item *MenuItem) Checked() bool {
+	item.mu.Lock()
+	defer item.mu.Unlock()
 	return item.checked
 }
 
 // Check a menu item regardless if it's previously checked or not.
 func (item *MenuItem) Check() {
+	item.mu.Lock()
 	item.checked = true
+	item.mu.Unlock()
 	item.update()
 }
 
 // Uncheck a menu item regardless if it's previously unchecked or not.
 func (item *MenuItem) Uncheck() {
+	item.mu.Lock()
 	item.checked = false
+	item.mu.Unlock()
 	item.update()
 }
 
@@ -259,6 +279,8 @@ func (item *MenuItem) update() {
 	menuItemsLock.Lock()
 	menuItems[item.id] = item
 	menuItemsLock.Unlock()
+	item.mu.Lock()
+	defer item.mu.Unlock()
 	addOrUpdateMenuItem(item)
 }
 
