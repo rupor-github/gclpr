@@ -17,7 +17,7 @@ type logWriter struct {
 	proc *windows.LazyProc
 }
 
-// NewLogWriter redirects all log output depending on debug parameetr.
+// NewLogWriter redirects all log output depending on debug parameter.
 // When true all output goes to OutputDebugString and you could use debugger or Sysinternals dbgview.exe to collect it.
 // When false - everything is discarded.
 func NewLogWriter(title string, flags int, debug bool) {

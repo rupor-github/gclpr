@@ -272,7 +272,7 @@ func run() int {
 		if er != nil {
 			pk, _, err = util.CreateKeys(home)
 		} else {
-			err = errors.New("usable keys already exit")
+			err = errors.New("usable keys already exist")
 		}
 		if pk != nil {
 			fmt.Printf("\nPublic key:\n\t%s\n", hex.EncodeToString(pk[:]))

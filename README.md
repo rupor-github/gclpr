@@ -77,12 +77,12 @@ Each request from the client is being signed using **private** key from the prev
 
 ** NOTE BREAKING CHANGE ** Starting with v1.1.0 buffer sent to the server has 8 bytes signature (string "gclpr", 1 byte major version, 1 byte minor version, 1 byte patch version). Server checks first 6 bytes of signature (that includes major version check) and rejects incompatible requests. In addition instead of sending **public** key its **sha256 hash** is being used on a wire (it has exactly the same size). As the result all versions of gclpr older than 1.1.0 are incompatible with later versions (and vice versa) - if your clipboard stopped working please upgrade. In the future only major version change will break compatibility. 
 
-On the "client" end keys are created by issuing `genkey` command. Newly created keys are placed in `${HOME}/.gclpr` directory (`${USEERPROFILE}\.gclpr` on Windows).
+On the "client" end keys are created by issuing `genkey` command. Newly created keys are placed in `${HOME}/.gclpr` directory (`${USERPROFILE}\.gclpr` on Windows).
 
-Server reads list of all known **public** keys from `${HOME}/.gclpr/trusted` file (`${USEERPROFILE}\.gclpr\trusted` on Windows). Any request with _unknown_ public key will be denied by server. Any request failing signature _verification_ will be denied by server. Thus as long as private keys are not compromised it should be pretty difficult to access clipboard or send URI to `open` maliciously using network interfaces.
+Server reads list of all known **public** keys from `${HOME}/.gclpr/trusted` file (`${USERPROFILE}\.gclpr\trusted` on Windows). Any request with _unknown_ public key will be denied by server. Any request failing signature _verification_ will be denied by server. Thus as long as private keys are not compromised it should be pretty difficult to access clipboard or send URI to `open` maliciously using network interfaces.
 
-File with public keys is simple text file. It supports "#" comment at the beginning of the line. Each uncomment line contains single hex encoded public key and it is user responsibility to make sure that this file is up to date and reasonably secured. URIs are parsed by golang stdlib `ParaseRequestURI` before being sent to server to further limit potential damage.
+File with public keys is simple text file. It supports "#" comment at the beginning of the line. Each uncommented line contains single hex encoded public key and it is user responsibility to make sure that this file is up to date and reasonably secured. URIs are parsed by golang stdlib `ParaseRequestURI` before being sent to server to further limit potential damage.
 
-Both client and server attempt to check permissions on key files on all platforms similarly to how its is done be OpenSSH code.
+Both client and server attempt to check permissions on key files on all platforms similarly to how it is done by OpenSSH code.
 
 Project is using public-key cryptography from golang [implementation of NaCl](https://pkg.go.dev/golang.org/x/crypto/nacl). Any additional security could be easily afforded by using ssh to redirect local service port to other computers making clipboard fully global.

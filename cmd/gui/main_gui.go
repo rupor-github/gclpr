@@ -32,7 +32,7 @@ var (
 	clipCancel  context.CancelFunc
 	clipCtx     context.Context
 	title       = "gclpr-gui"
-	tooltip     = "Niotification tray wrapper for gclpr"
+	tooltip     = "Notification tray wrapper for gclpr"
 	cli         = flag.NewFlagSet(title, flag.ContinueOnError)
 )
 
@@ -94,7 +94,7 @@ func clipStart() error {
 
 	log.Printf("Starting server with %d trusted public key(s)\n", len(pkeys))
 	if len(pkeys) == 0 {
-		return fmt.Errorf("no keys to servce")
+		return fmt.Errorf("no keys to serve")
 	}
 
 	clipCtx, clipCancel = context.WithCancel(context.Background())

@@ -10,7 +10,7 @@ var (
 	reLFNotCRLF = regexp.MustCompile(`([^\r])\n|^\n`)
 )
 
-// ConvertLE is used to normaliza line endings when exchanging clipboard content.
+// ConvertLE is used to normalize line endings when exchanging clipboard content.
 func ConvertLE(text, op string) string {
 	switch {
 	case strings.EqualFold("lf", op):
