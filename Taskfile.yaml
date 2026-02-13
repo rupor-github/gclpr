@@ -33,11 +33,8 @@ tasks:
     aliases: [debug]
     platforms: [linux]
     deps:
-      - task: copy-file
-        vars: {SRC: 'scripts/git/pre-commit', DST: '.git/hooks/pre-commit'}
-      - task: copy-file
-        vars: {SRC: 'scripts/git/pre-push', DST: '.git/hooks/pre-push'}
       - task: generate-project-version
+      - task: pre-commit-install
     vars:
       BUILD_DIR: '{{.DEV_BUILD_DIR}}'
     cmds:
@@ -449,7 +446,24 @@ tasks:
       - rm -fv ./cmd/gui/manifest.xml
       - rm -fv ./cmd/gui/resources.syso
       - rm -fv gclpr.json
-      # - rm -fv misc/version.go
+      - rm -fv misc/version.go
+      - rm -fv {{.ROOT_DIR}}/.git/hooks/pre-commit
+      - rm -fv {{.ROOT_DIR}}/.git/hooks/pre-push
+
+  pre-commit-install:
+    internal: true
+    desc: Installs pre-commit hooks for git
+    platforms: [linux]
+    preconditions:
+      - sh: 'command -v "pre-commit" &> /dev/null'
+        msg: "pre-commit is not available - either not installed or python venv is not set properly"
+    cmds:
+      - pre-commit install -f
+    sources:
+      - ./.pre-commit-config.yaml
+    status:
+      - test -f '{{.ROOT_DIR}}/.git/hooks/pre-commit'
+      - test -f '{{.ROOT_DIR}}/.git/hooks/pre-push'
 
   copy-file:
     internal: true
