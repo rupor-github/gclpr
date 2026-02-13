@@ -9,11 +9,17 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
-// allowedSchemes lists URI schemes that are safe to open.
-var allowedSchemes = map[string]bool{
-	"http":  true,
-	"https": true,
+// blockedSchemes lists URI schemes that should not be passed to the OS opener.
+var blockedSchemes = map[string]bool{
+	"file":       true,
+	"data":       true,
+	"javascript": true,
+	"vbscript":   true,
 }
+
+// opener is the function used to open URIs. It defaults to open.Run and can be
+// overridden in tests to avoid launching real applications.
+var opener = open.Run
 
 // URI is used to rpc open command.
 type URI struct {
@@ -35,9 +41,9 @@ func (u *URI) Open(uri string, _ *struct{}) error {
 	}
 
 	scheme := strings.ToLower(parsed.Scheme)
-	if !allowedSchemes[scheme] {
+	if blockedSchemes[scheme] {
 		return fmt.Errorf("URI scheme %q is not allowed", scheme)
 	}
 
-	return open.Run(uri)
+	return opener(uri)
 }

@@ -256,7 +256,7 @@ func run() int {
 
 	switch cmd {
 	case cmdOpen:
-		if _, err = url.ParseRequestURI(aData); err != nil {
+		if _, err = url.Parse(aData); err != nil {
 			break
 		}
 		err = doRPC(home, func(rc *rpc.Client) error {
