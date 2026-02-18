@@ -162,9 +162,7 @@ func TestFramingOverTCP(t *testing.T) {
 	var serverErr error
 
 	// Server side: read all frames
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		conn, err := ln.Accept()
 		if err != nil {
 			serverErr = err
@@ -188,7 +186,7 @@ func TestFramingOverTCP(t *testing.T) {
 		if err := WriteFrame(conn, []byte("all received")); err != nil {
 			serverErr = err
 		}
-	}()
+	})
 
 	// Client side: write all frames
 	conn, err := net.Dial("tcp", ln.Addr().String())

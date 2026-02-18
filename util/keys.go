@@ -115,7 +115,7 @@ func ReadTrustedKeys(home string) (map[[32]byte][32]byte, error) {
 	}
 
 	res := make(map[[32]byte][32]byte)
-	for _, b := range bytes.Split(bytes.ReplaceAll(content, []byte{'\r'}, []byte{'\n'}), []byte{'\n'}) {
+	for b := range bytes.SplitSeq(bytes.ReplaceAll(content, []byte{'\r'}, []byte{'\n'}), []byte{'\n'}) {
 		b = bytes.TrimSpace(b)
 		if len(b) == 0 || b[0] == '#' {
 			continue
@@ -180,7 +180,7 @@ type part struct {
 // compute calculates a SHA-1 hash over S-expression encoded parts for GPG keygrip computation.
 func compute(parts []part) []byte {
 	h := new(bytes.Buffer)
-	for i := 0; i < len(parts); i++ {
+	for i := range parts {
 		// buuld Rivest's S-exp
 		if _, err := fmt.Fprintf(h, "(%d:%s%d:%s)", len(parts[i].name), parts[i].name, len(parts[i].value), parts[i].value); err != nil {
 			log.Printf("IO error in keygrip compute: %s", err.Error())

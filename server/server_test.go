@@ -94,9 +94,7 @@ func startTestServer(t *testing.T, pkeys map[[32]byte][32]byte) (string, func())
 			if err != nil {
 				return
 			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				sc := &secConn{
 					conn:      conn,
 					br:        bufio.NewReader(conn),
@@ -107,7 +105,7 @@ func startTestServer(t *testing.T, pkeys map[[32]byte][32]byte) (string, func())
 				}
 				defer sc.Close()
 				srv.ServeConn(sc)
-			}()
+			})
 		}
 	}()
 
@@ -245,9 +243,7 @@ func TestRPCMultipleClients(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			client := dialClient(t, addr, pk, sk)
 			defer client.Close()
 
@@ -265,7 +261,7 @@ func TestRPCMultipleClients(t *testing.T) {
 			if string(runes) != input {
 				t.Errorf("client %d: got %q, want %q", i, string(runes), input)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }

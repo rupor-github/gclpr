@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"sync"
 	"unsafe"
 
@@ -738,7 +738,7 @@ func (t *winTray) addToVisibleItems(parent, val uint32) {
 		t.visibleItems[parent] = []uint32{val}
 	} else {
 		newvisible := append(visibleItems, val)
-		sort.Slice(newvisible, func(i, j int) bool { return newvisible[i] < newvisible[j] })
+		slices.Sort(newvisible)
 		t.visibleItems[parent] = newvisible
 	}
 }
