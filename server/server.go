@@ -97,12 +97,16 @@ func (sc *secConn) Close() error {
 // Serve handles backend rpc calls.
 // It uses rpc.DefaultServer internally, so it can only be called once per process.
 func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte, magic []byte, locked *int32, ioTimeout time.Duration) error {
+	tunnel := NewTunnel()
 
 	if err := rpc.Register(NewURI()); err != nil {
 		return fmt.Errorf("unable to register URI rpc object: %w", err)
 	}
 	if err := rpc.Register(NewClipboard(le)); err != nil {
 		return fmt.Errorf("unable to register Clipboard rpc object: %w", err)
+	}
+	if err := rpc.Register(tunnel); err != nil {
+		return fmt.Errorf("unable to register Tunnel rpc object: %w", err)
 	}
 
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("localhost:%d", port))
@@ -133,18 +137,103 @@ func Serve(ctx context.Context, port int, le string, pkeys map[[32]byte][32]byte
 			log.Print("gclpr server is shutting down\n")
 			return nil
 		}
-		go func(sc *secConn) {
+		go func(conn net.Conn) {
+			handled, rpcReader := tunnel.attach(conn)
+			if handled {
+				return
+			}
+			sc := &secConn{
+				conn:      conn,
+				br:        rpcReader,
+				pkeys:     pkeys,
+				magic:     magic,
+				locked:    locked,
+				ioTimeout: ioTimeout,
+			}
 			defer sc.Close()
 			log.Printf("gclpr server accepted request from '%s'", sc.conn.RemoteAddr())
 			rpc.ServeConn(sc)
 			log.Printf("gclpr server handled request from '%s'", sc.conn.RemoteAddr())
-		}(&secConn{
-			conn:      conn,
-			br:        bufio.NewReader(conn),
-			pkeys:     pkeys,
-			magic:     magic,
-			locked:    locked,
-			ioTimeout: ioTimeout,
-		})
+		}(conn)
 	}
+}
+
+func (t *Tunnel) attach(conn net.Conn) (bool, *bufio.Reader) {
+	br := bufio.NewReader(conn)
+	prefix, err := br.Peek(4)
+	if err != nil {
+		conn.Close()
+		return true, nil
+	}
+	if len(prefix) != 4 {
+		conn.Close()
+		return true, nil
+	}
+	frameLen := int(uint32(prefix[0])<<24 | uint32(prefix[1])<<16 | uint32(prefix[2])<<8 | uint32(prefix[3]))
+	if frameLen <= 0 || frameLen > util.MaxFrameSize {
+		return false, br
+	}
+	raw, err := util.ReadFrame(br)
+	if err != nil {
+		conn.Close()
+		return true, nil
+	}
+	replay := bufio.NewReader(io.MultiReader(bytes.NewReader(appendFrame(raw)), br))
+	if len(raw) < 1+4+tunnelMACSize {
+		return false, replay
+	}
+	frameType := tunnelFrameType(raw[0])
+	if frameType != tunnelFrameAttach {
+		return false, replay
+	}
+	sessionIDBytes := raw[5 : len(raw)-tunnelMACSize]
+	if len(sessionIDBytes) == 0 {
+		conn.Close()
+		return true, nil
+	}
+	sessionID := string(sessionIDBytes)
+	t.mu.Lock()
+	session, ok := t.sessions[sessionID]
+	t.mu.Unlock()
+	if !ok {
+		conn.Close()
+		return true, nil
+	}
+	endpoint := &tunnelEndpoint{conn: conn, br: replay, macKey: append([]byte(nil), session.macKey...)}
+	frame, err := endpoint.readFrame()
+	if err != nil || frame.Type != tunnelFrameAttach || string(frame.Payload) != sessionID {
+		endpoint.close()
+		session.closeReason = "attach validation failed"
+		t.closeSession(sessionID)
+		return true, nil
+	}
+	if session.attachTimer != nil {
+		session.attachTimer.Stop()
+	}
+	if session.peer != nil {
+		endpoint.close()
+		return true, nil
+	}
+	session.peer = endpoint
+	session.markPeerReady()
+	session.touch()
+	session.launchOnce.Do(func() {
+		if err := opener(session.openURL); err != nil {
+			log.Printf("unable to open tunneled URI %q: %v", session.openURL, err)
+			session.closeReason = fmt.Sprintf("browser open failed: %v", err)
+			t.closeSession(sessionID)
+		}
+	})
+	go t.readPeerFrames(session)
+	return true, nil
+}
+
+func appendFrame(payload []byte) []byte {
+	buf := make([]byte, 4+len(payload))
+	buf[0] = byte(len(payload) >> 24)
+	buf[1] = byte(len(payload) >> 16)
+	buf[2] = byte(len(payload) >> 8)
+	buf[3] = byte(len(payload))
+	copy(buf[4:], payload)
+	return buf
 }

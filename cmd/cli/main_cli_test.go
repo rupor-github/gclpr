@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"os"
 	"testing"
 )
 
@@ -118,5 +119,112 @@ func TestCommandString(t *testing.T) {
 	bad := command(99)
 	if s := bad.String(); s == "" {
 		t.Error("expected non-empty string for bad command")
+	}
+}
+
+func TestParseTunnelTarget(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantErr bool
+	}{
+		{name: "localhost http", raw: "http://localhost:3000", wantErr: false},
+		{name: "ipv4 loopback https", raw: "https://127.0.0.1:8443/path", wantErr: false},
+		{name: "ipv6 loopback", raw: "http://[::1]:8080", wantErr: false},
+		{name: "non absolute", raw: "/relative", wantErr: true},
+		{name: "non loopback host", raw: "http://example.com", wantErr: true},
+		{name: "unsupported scheme", raw: "ftp://localhost:21", wantErr: true},
+		{name: "bare host without scheme", raw: "localhost:3000", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			parsed, err := parseTunnelTarget(tc.raw)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %q", tc.raw)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if parsed.String() != tc.raw {
+				t.Fatalf("parsed.String() = %q, want %q", parsed.String(), tc.raw)
+			}
+		})
+	}
+}
+
+func TestProcessCommandLineRejectsMixedTunnelModes(t *testing.T) {
+	origTunnel, origOAuth := aTunnel, aOAuth
+	t.Cleanup(func() {
+		aTunnel = origTunnel
+		aOAuth = origOAuth
+	})
+
+	_, err := processCommandLine([]string{"gclpr", "open", "-tunnel", "-oauth", "http://localhost:3000"})
+	if err == nil {
+		t.Fatal("expected error for mixed tunnel modes")
+	}
+}
+
+func TestProcessCommandLineAliasedOpenDefaultsToOAuth(t *testing.T) {
+	origOAuth := aOAuth
+	t.Cleanup(func() { aOAuth = origOAuth })
+
+	_, err := processCommandLine([]string{"xdg-open", "http://example.com"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !aOAuth {
+		t.Fatal("expected aliased open to enable oauth mode by default")
+	}
+}
+
+func TestAliasedOAuthFallbackDetection(t *testing.T) {
+	origArgs := os.Args
+	t.Cleanup(func() { os.Args = origArgs })
+	os.Args = []string{"xdg-open", "http://example.com"}
+
+	if !reOpen.MatchString(os.Args[0]) {
+		t.Fatal("expected xdg-open alias to match")
+	}
+}
+
+func TestBuildTunnelTargetsFromOAuthURL(t *testing.T) {
+	targets, err := buildTunnelTargetsFromOAuthURL("https://login.example.com/auth?redirect_uri=http%3A%2F%2Flocalhost%3A33155")
+	if err != nil {
+		t.Fatalf("buildTunnelTargetsFromOAuthURL: %v", err)
+	}
+	if len(targets) != 1 {
+		t.Fatalf("len(targets) = %d, want 1", len(targets))
+	}
+	if targets[0].ListenHost != "localhost" || targets[0].ListenPort != 33155 || targets[0].DialAddr != "127.0.0.1:33155" {
+		t.Fatalf("unexpected target: %#v", targets[0])
+	}
+}
+
+func TestEnvDebugEnabled(t *testing.T) {
+	orig := os.Getenv("GCLPR_DEBUG")
+	t.Cleanup(func() { _ = os.Setenv("GCLPR_DEBUG", orig) })
+	if err := os.Setenv("GCLPR_DEBUG", "1"); err != nil {
+		t.Fatal(err)
+	}
+	if !envDebugEnabled() {
+		t.Fatal("expected env debug to be enabled")
+	}
+}
+
+func TestGetCommandInternalOAuthWorker(t *testing.T) {
+	cmd, aliased, err := getCommand([]string{"gclpr", "internal-oauth-worker"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if aliased {
+		t.Fatal("expected explicit command, not aliased")
+	}
+	if cmd != cmdOAuthWorker {
+		t.Fatalf("cmd = %v, want %v", cmd, cmdOAuthWorker)
 	}
 }

@@ -15,8 +15,8 @@ vars:
 
   REF_VER: '{{regexFind "refs/tags/v[0-9]+\\.[0-9]+\\.?[0-9]*[-a-zA-Z0-9+]*" (env "GITHUB_REF")}}'
 
-  # presently only win64 is supported
-  TARGET_RELEASES: [linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64-.exe]
+  #TARGET_RELEASES: [linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64-.exe]
+  TARGET_RELEASES: [linux-amd64, windows-amd64-.exe]
 
   TATN: {sh: '{{if (env "TERM")}}tput setaf 4{{end}}'}
   TOFF: {sh: '{{if (env "TERM")}}tput sgr0{{end}}'}
@@ -180,7 +180,7 @@ tasks:
       DIRS_WITH_TESTS:
         sh: find -name '*_test.go' -printf "%h\n" | sort -u
     cmds:
-      - echo "{{.TATN}}Check compiling all availble tests{{.TOFF}}"
+      - echo "{{.TATN}}Check compiling all available tests{{.TOFF}}"
       - for: {var: DIRS_WITH_TESTS, as: DIR}
         cmd: go test -mod=mod -c -o /dev/null '{{.DIR}}'
     sources:

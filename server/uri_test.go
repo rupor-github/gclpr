@@ -59,8 +59,15 @@ func TestURIOpenBlocklist(t *testing.T) {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
-				if opened != tc.uri {
-					t.Fatalf("expected opener to receive %q, got %q", tc.uri, opened)
+				wantOpened := tc.uri
+				if tc.name == "bare hostname" {
+					wantOpened = "https://google.com"
+				}
+				if tc.name == "bare hostname with path" {
+					wantOpened = "https://example.com/page"
+				}
+				if opened != wantOpened {
+					t.Fatalf("expected opener to receive %q, got %q", wantOpened, opened)
 				}
 			}
 		})

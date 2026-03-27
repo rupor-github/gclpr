@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/skratchdot/open-golang/open"
@@ -35,15 +36,38 @@ func NewURI() *URI {
 func (u *URI) Open(uri string, _ *struct{}) error {
 	log.Printf("URI Open received: '%s'", uri)
 
-	parsed, err := url.Parse(uri)
+	parsed, err := ParseOpenURI(uri)
 	if err != nil {
-		return fmt.Errorf("invalid URI: %w", err)
+		return err
+	}
+
+	return opener(normalizeOpenURI(parsed, uri))
+}
+
+// ParseOpenURI validates that the URI can be safely passed to the OS opener.
+func ParseOpenURI(raw string) (*url.URL, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URI: %w", err)
 	}
 
 	scheme := strings.ToLower(parsed.Scheme)
 	if blockedSchemes[scheme] {
-		return fmt.Errorf("URI scheme %q is not allowed", scheme)
+		return nil, fmt.Errorf("URI scheme %q is not allowed", scheme)
 	}
 
-	return opener(uri)
+	return parsed, nil
+}
+
+func normalizeOpenURI(parsed *url.URL, raw string) string {
+	if parsed.Scheme != "" || parsed.Host != "" || strings.HasPrefix(raw, "//") {
+		return raw
+	}
+	if strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../") {
+		return raw
+	}
+	if vol := filepath.VolumeName(raw); vol != "" {
+		return raw
+	}
+	return "https://" + raw
 }

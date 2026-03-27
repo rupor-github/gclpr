@@ -47,6 +47,7 @@ const (
 	cmdPaste
 	cmdServer
 	cmdGenKey
+	cmdOAuthWorker
 )
 
 func (c command) String() string {
@@ -61,20 +62,27 @@ func (c command) String() string {
 		return "start server"
 	case cmdGenKey:
 		return "generate key pair for signing"
+	case cmdOAuthWorker:
+		return "run detached oauth tunnel worker"
 	default:
 		return fmt.Sprintf("bad command %d", c)
 	}
 }
 
 var (
-	aPort           int
-	aLE             string
-	aHelp           bool
-	aDebug          bool
-	aData           string
-	aConnectTimeout time.Duration
-	aIOTimeout      time.Duration
-	cli             = flag.NewFlagSet("gclpr", flag.ContinueOnError)
+	aPort             int
+	aLE               string
+	aHelp             bool
+	aDebug            bool
+	aTunnel           bool
+	aOAuth            bool
+	aWorkerSessionID  string
+	aWorkerMACKey     string
+	aWorkerStatusAddr string
+	aData             string
+	aConnectTimeout   time.Duration
+	aIOTimeout        time.Duration
+	cli               = flag.NewFlagSet("gclpr", flag.ContinueOnError)
 
 	reOpen  = regexp.MustCompile(`/?xdg-open$`)
 	rePaste = regexp.MustCompile(`/?pbpaste$`)
@@ -113,6 +121,8 @@ func getCommand(args []string) (cmd command, aliased bool, err error) {
 			cmd = cmdServer
 		case "genkey":
 			cmd = cmdGenKey
+		case "internal-oauth-worker":
+			cmd = cmdOAuthWorker
 		default:
 			continue
 		}
@@ -142,8 +152,11 @@ func processCommandLine(args []string) (cmd command, err error) {
 	if err = cli.Parse(args[1:]); err != nil {
 		return
 	}
+	if !aDebug && envDebugEnabled() {
+		aDebug = true
+	}
 
-	if cmd == cmdPaste || cmd == cmdServer || cmd == cmdGenKey {
+	if cmd == cmdPaste || cmd == cmdServer || cmd == cmdGenKey || cmd == cmdOAuthWorker {
 		return
 	}
 
@@ -158,6 +171,12 @@ func processCommandLine(args []string) (cmd command, err error) {
 	if aHelp {
 		return
 	}
+	if aTunnel && aOAuth {
+		return 0, errors.New("-tunnel and -oauth cannot be used together")
+	}
+	if aliased && cmd == cmdOpen && !aTunnel && !aOAuth {
+		aOAuth = true
+	}
 
 	if len(arg) != 0 {
 		aData = arg
@@ -169,6 +188,14 @@ func processCommandLine(args []string) (cmd command, err error) {
 		aData = string(b)
 	}
 	return
+}
+
+func parseTunnelTarget(raw string) (*url.URL, error) {
+	parsed, err := server.ParseTunnelURL(raw)
+	if err != nil {
+		return nil, err
+	}
+	return parsed, nil
 }
 
 type secConn struct {
@@ -256,6 +283,75 @@ func run() int {
 
 	switch cmd {
 	case cmdOpen:
+		if aTunnel {
+			var req server.TunnelOpenRequest
+			var resp server.TunnelOpenResponse
+			var targets []server.TunnelTarget
+			var macKey []byte
+			if targets, _, err = buildTunnelTargetsFromURL(aData); err != nil {
+				break
+			}
+			log.Printf("tunnel mode selected targets=%v", targets)
+			if macKey, err = generateTunnelMACKey(); err != nil {
+				break
+			}
+			req = server.TunnelOpenRequest{
+				URL:           aData,
+				Targets:       targets,
+				MACKey:        macKey,
+				AttachTimeout: aConnectTimeout,
+				IdleTimeout:   aIOTimeout,
+			}
+			err = doRPC(home, func(rc *rpc.Client) error {
+				return rc.Call("Tunnel.Open", req, &resp)
+			})
+			if err == nil {
+				err = startTunnelClient(resp, macKey, aConnectTimeout, nil)
+			}
+			break
+		}
+		if aOAuth {
+			var req server.TunnelOpenRequest
+			var resp server.TunnelOpenResponse
+			var targets []server.TunnelTarget
+			var macKey []byte
+			log.Printf("oauth mode parsing redirect_uri timeout=%s", aIOTimeout)
+			targets, err = buildTunnelTargetsFromOAuthURL(aData)
+			if err != nil {
+				log.Printf("oauth setup unavailable: %v; continuing with normal open", err)
+				err = nil
+			} else {
+				log.Printf("oauth mode selected targets=%v", targets)
+				if macKey, err = generateTunnelMACKey(); err != nil {
+					log.Printf("oauth setup failed: %v; continuing with normal open", err)
+					err = nil
+				} else {
+					req = server.TunnelOpenRequest{
+						URL:           aData,
+						Targets:       targets,
+						MACKey:        macKey,
+						AttachTimeout: aConnectTimeout,
+						IdleTimeout:   aIOTimeout,
+					}
+					err = doRPC(home, func(rc *rpc.Client) error {
+						return rc.Call("Tunnel.Open", req, &resp)
+					})
+					if err != nil {
+						log.Printf("oauth setup failed: %v; continuing with normal open", err)
+						err = nil
+					} else {
+						err = launchOAuthWorker(resp, macKey)
+						if err != nil {
+							log.Printf("oauth worker launch failed: %v; continuing with normal open", err)
+							err = nil
+						} else {
+							log.Printf("oauth worker launched session=%s", resp.SessionID)
+							return exitSuccess
+						}
+					}
+				}
+			}
+		}
 		if _, err = url.Parse(aData); err != nil {
 			break
 		}
@@ -294,6 +390,10 @@ func run() int {
 			err = server.Serve(context.Background(), aPort, aLE, pkeys, misc.Magic(), nil, aIOTimeout)
 		}
 	default:
+		if cmd == cmdOAuthWorker {
+			err = runOAuthWorker()
+			break
+		}
 		err = errors.New("this should never happen")
 	}
 
@@ -310,7 +410,12 @@ func main() {
 	cli.IntVar(&aPort, "port", server.DefaultPort, "TCP port number")
 	cli.StringVar(&aLE, "line-ending", "", "Convert Line Endings (LF/CRLF)")
 	cli.DurationVar(&aConnectTimeout, "connect-timeout", server.DefaultConnectTimeout, "TCP connection timeout")
-	cli.DurationVar(&aIOTimeout, "timeout", server.DefaultIOTimeout, "Read/write I/O timeout")
+	cli.DurationVar(&aIOTimeout, "timeout", time.Minute, "Read/write I/O timeout")
+	cli.BoolVar(&aTunnel, "tunnel", false, "Tunnel loopback http(s) targets for open")
+	cli.BoolVar(&aOAuth, "oauth", false, "Tunnel OAuth redirect_uri callback listener for open")
+	cli.StringVar(&aWorkerSessionID, "worker-session-id", "", "Internal: oauth worker session id")
+	cli.StringVar(&aWorkerMACKey, "worker-mac-key", "", "Internal: oauth worker mac key")
+	cli.StringVar(&aWorkerStatusAddr, "worker-status-addr", "", "Internal: oauth worker status address")
 	cli.BoolVar(&aDebug, "debug", false, "Print debugging information")
 
 	cli.Usage = func() {
@@ -339,7 +444,17 @@ Options:
 
 `, cmdCopy, cmdPaste, cmdOpen, cmdGenKey, cmdServer)
 
-		cli.PrintDefaults()
+		cli.VisitAll(func(f *flag.Flag) {
+			if strings.HasPrefix(f.Name, "worker-") {
+				return
+			}
+			name, usage := flag.UnquoteUsage(f)
+			if name != "" {
+				fmt.Fprintf(&buf, "  -%s %s\n\t%s (default %q)\n", f.Name, name, usage, f.DefValue)
+				return
+			}
+			fmt.Fprintf(&buf, "  -%s\n\t%s (default %q)\n", f.Name, f.Usage, f.DefValue)
+		})
 		fmt.Fprint(os.Stderr, buf.String())
 	}
 
