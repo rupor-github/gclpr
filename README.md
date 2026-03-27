@@ -1,96 +1,212 @@
-<h1>   
+<h1>
     <img src="docs/clip.svg" style="vertical-align:middle; width:8%" align="absmiddle"/>
     <span style="vertical-align:middle;">&nbsp;&nbsp;gclpr</span>
 </h1>
 
-### Simple utility tool - copy/paste text and open URL in a browser over localhost TCP.
+### Signed localhost clipboard and browser-open bridge
 [![GitHub Release](https://img.shields.io/github/release/rupor-github/gclpr.svg)](https://github.com/rupor-github/gclpr/releases)
+
+`gclpr` is a small utility that lets one process act as a local clipboard/browser service for another process.
+
+It provides three client-side operations:
+
+- `copy`: send text to the server clipboard
+- `paste`: read text from the server clipboard
+- `open`: ask the server to open a URL in its default browser
+
+The transport is always TCP over `localhost`. If you want to use `gclpr` across machines, the intended setup is SSH local port forwarding so both ends still talk to `localhost`.
+
+Why this exists
+---------------
+
+`gclpr` was inspired by [lemonade](https://github.com/lemonade-command/lemonade), but focuses on a few practical constraints:
+
+- Windows support matters, and Windows OpenSSH does not make Unix socket workflows convenient.
+- Clipboard and browser-open requests should not be authorized by source IP alone.
+- The tool should be easy to embed and reason about.
+
+Instead of exposing a plaintext clipboard service to whoever can reach a port, every client request is signed with a private key and verified by the server against trusted public keys.
 
 Installation
 ------------
 
-Starting with v1.1.2 gclpr on Windows can be installed and updated using [scoop](https://scoop.sh/).
+Windows users can install and update `gclpr` with [scoop](https://scoop.sh/):
 
-Installing:
-```
-    scoop install https://github.com/rupor-github/gclpr/releases/latest/download/gclpr.json
-```
-and updating:
-```
-    scoop update gclpr
+```bash
+scoop install https://github.com/rupor-github/gclpr/releases/latest/download/gclpr.json
+scoop update gclpr
 ```
 
-Alternatively (for all supported platforms) download from the [releases page](https://github.com/rupor-github/gclpr/releases) and unpack it in a convenient location.
+On all supported platforms, you can also download archives from the [releases page](https://github.com/rupor-github/gclpr/releases) and unpack them anywhere convenient.
 
-Starting with v1.1.1 releases are packed with zip and signed with [minisign](https://jedisct1.github.io/minisign/). Here is public key for verification:
+Starting with v1.1.1, release archives are zip files signed with [minisign](https://jedisct1.github.io/minisign/). Public key:
 
 <p>
     <img src="docs/build_key.svg" style="vertical-align:middle; width:15%" align="absmiddle"/>
     <span style="vertical-align:middle;">&nbsp;&nbsp;RWTNh1aN8DrXq26YRmWO3bPBx4m8jBATGXt4Z96DF4OVSzdCBmoAU+Vq</span>
 </p>
 
-Raison d'être
-------------
+Quick start
+-----------
 
-I was using [lemonade](https://github.com/lemonade-command/lemonade) and particularly [my fork of it](https://github.com/rupor-github/lemonade) day to day 
-for a while, but was never fully satisfied. In addition Lemonade code base was not structured for easy embedding in other projects.
+1. On the client side, create a key pair:
 
-Since native Windows support is required and Windows OpenSSH does not work with UNIX sockets (even if Windows itself supports them natively) TCP must be used and additional security measures should be taken. This was never lemonade's strong point - controlling access to clipboard by using source IP address does not seem good enough and today with VMs and containers configuration gets especially convoluted.
-
-Enter another remote clipboard tool
-------------
-`gclpr` attempts to behave similar to `lemonade`:
-
+```bash
+gclpr genkey
 ```
-gclpr - copy, paste text and open browser over localhost TCP interface
 
-Version:
-    1.0.0 (go version) git hash
+2. Copy the generated public key into the server trusted-keys file:
 
-Usage:
-    gclpr [options]... COMMAND [arg]
+- Linux/macOS: `${HOME}/.gclpr/trusted`
+- Windows: `${USERPROFILE}\.gclpr\trusted`
+
+3. Start the server on the machine that owns the clipboard and browser you want to use:
+
+```bash
+gclpr server
+```
+
+4. Use the client commands:
+
+```bash
+gclpr copy 'hello'
+gclpr paste
+gclpr open 'https://example.com'
+```
+
+Remote setup over SSH
+---------------------
+
+`gclpr` always connects to `localhost`. To use a remote server, forward the remote server port to local `localhost` with SSH.
+
+Example:
+
+```bash
+ssh -L 2850:localhost:2850 user@remote-host
+```
+
+With that tunnel in place:
+
+- the local `gclpr` client still connects to `localhost:2850`
+- the remote `gclpr server` still listens on its own `localhost:2850`
+- SSH carries the traffic between them
+
+This design is intentional. `gclpr` does not try to listen on non-loopback interfaces directly.
+
+Commands and options
+--------------------
+
+Typical CLI help looks like this:
+
+```text
+gclpr [options]... COMMAND [arg]
 
 Commands:
+  copy 'text'   send text to server clipboard
+  paste         output server clipboard locally
+  open 'url'    open URL in server's default browser
+  genkey        generate key pair for signing
+  server        start server
 
-    copy 'text'  - (client) send text to server clipboard
-    paste        - (client) output server clipboard locally
-    open 'url'   - (client) open url in server's default browser
-    genkey       - (client) generate key pair for signing
-    server       - start server
-
-Options:
-
-  -debug
-        Print debugging information
-  -help
-        Show help
-  -oauth
-        Tunnel OAuth redirect_uri callback listener for open
-  -line-ending string
-        Convert Line Endings (LF/CRLF)
-  -port int
-        TCP port number (default 2850)
-  -timeout duration
-        Read/write I/O timeout (default 1m0s)
-  -tunnel
-        Tunnel loopback http(s) targets for open
+Common options:
+  -port int                 TCP port for the gclpr RPC server (default 2850)
+  -connect-timeout duration TCP connect timeout and tunnel attach timeout
+  -timeout duration         read/write I/O timeout and tunnel idle timeout
+  -line-ending string       convert line endings for paste output (LF/CRLF)
+  -tunnel                   tunnel an explicit loopback HTTP(S) URL
+  -oauth                    tunnel the OAuth redirect_uri callback listener
+  -debug                    enable debug logging
+  -help                     show help
 ```
-You can replace `pbcopy`, `pbpaste`, and `xdg-open` with `gclpr` aliases - it will recognize those names automatically. Note that the TCP address cannot be changed (unlike in lemonade) - both client and server always use `localhost`, only the port can vary.
 
-`open` now supports two different browser-tunnel modes:
+Important clarifications:
 
-- `open -tunnel http://localhost:3000` is a strict generic TCP tunnel for explicit loopback URLs.
-- `open -oauth <authorization-url>` parses `redirect_uri` from the OAuth authorization URL, prepares a matching tunnel, and then opens the authorization URL in the server browser.
+- `-port` is the `gclpr server` RPC port, not the browser-tunnel port.
+- `-tunnel` and `-oauth` are mutually exclusive.
+- `copy`, `paste`, and `open` are client commands; `server` is the long-running service.
+- `open` without `-tunnel` or `-oauth` is a plain remote browser-open request with no callback tunnel.
 
-When `gclpr` is invoked through the `xdg-open` alias, `-oauth` is enabled automatically. OAuth setup is best-effort in this mode: if tunnel setup fails, `gclpr` falls back to a normal remote `open` request.
+Alias behavior
+--------------
 
-For compatibility with callers such as `az login`, OAuth mode launches a detached background worker to own the tunnel and lets the original `xdg-open` / `open -oauth` process return immediately after the worker attaches.
+`gclpr` can be invoked through compatible command names:
 
-Debugging notes:
+- `pbcopy` -> behaves like `gclpr copy`
+- `pbpaste` -> behaves like `gclpr paste`
+- `xdg-open` -> behaves like `gclpr open`
 
-- `-debug` enables verbose client logging.
-- `GCLPR_DEBUG=1` enables the same logging through the environment, which is useful when `gclpr` is invoked via the `xdg-open` alias and extra CLI flags cannot be passed.
-- In debug mode, detached OAuth workers write their logs to a temporary file created as `gclpr-worker-*.log`; the parent process prints the exact path before detaching.
+There is one special rule:
+
+- when invoked as `xdg-open`, `gclpr` automatically enables OAuth mode unless `-tunnel` is explicitly requested
+
+This is meant for tools such as Azure CLI that launch the browser through `xdg-open` and expect a localhost OAuth callback.
+
+Open modes
+----------
+
+`open` supports three distinct behaviors.
+
+### 1. Plain open
+
+```bash
+gclpr open 'https://example.com'
+```
+
+The client sends the URL to the server and the server opens it in its default browser.
+
+### 2. Explicit tunnel mode
+
+```bash
+gclpr open -tunnel 'http://localhost:3000'
+```
+
+Use this when the browser on the server must reach an HTTP(S) service that is available only on the client loopback interface.
+
+How it works:
+
+1. The client asks the server to reserve a loopback listener.
+2. The server opens a matching loopback port on its own machine.
+3. The client attaches a tunnel worker to the server.
+4. The server browser opens the loopback URL, and traffic is proxied back to the client loopback target.
+
+Requirements and limits:
+
+- only `http://` and `https://` URLs are accepted
+- the target host must already be loopback: `localhost`, `127.0.0.1`, or `::1`
+- this mode is strict; if setup fails, the command fails
+
+Port conflicts:
+
+- if the requested server-side loopback port is already busy, `gclpr` now falls back to a random available loopback port
+- the URL opened in the browser is rewritten to use the actual bound port
+
+### 3. OAuth tunnel mode
+
+```bash
+gclpr open -oauth 'https://login.example.com/auth?...&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fcallback'
+```
+
+Use this when the authorization URL contains a localhost `redirect_uri` and the callback must reach a service listening on the client machine.
+
+How it works:
+
+1. `gclpr` parses `redirect_uri` from the authorization URL.
+2. It validates that the callback target is loopback HTTP(S).
+3. It asks the server to reserve a matching loopback listener.
+4. It launches a detached background worker that owns the tunnel.
+5. The original process returns as soon as the worker is attached.
+6. The server browser opens the authorization URL.
+
+Behavior differences from `-tunnel`:
+
+- the opened URL is usually not itself a loopback URL; only `redirect_uri` is tunneled
+- setup is best-effort when invoked as `xdg-open`; if OAuth preparation fails, `gclpr` falls back to a normal remote open
+- when `-oauth` is requested explicitly, the same best-effort fallback behavior is used by the current implementation
+
+Port conflicts in OAuth mode:
+
+- if the callback port from `redirect_uri` is unavailable on the server, `gclpr` chooses a random available loopback port
+- the `redirect_uri` inside the opened authorization URL is rewritten to that actual port before the browser is launched
 
 Example with Azure CLI on Linux:
 
@@ -99,26 +215,86 @@ export BROWSER=xdg-open
 az login -t <tenant>
 ```
 
-If you need debug logs for the aliased browser flow:
+Debugging aliased browser flow:
 
 ```bash
 GCLPR_DEBUG=1 BROWSER=xdg-open az login -t <tenant>
 ```
 
-Recent Windows versions also include `gclpr-gui.exe` tools which allows you to run `server` command as notification tray icon on Windows simplifying life cycle management and packages pre-built [npiperelay.exe](https://github.com/jstarks/npiperelay) to avoid "scoop" installing additional packages needed by WSL2.
+Debugging
+---------
 
-Each request from the client is being signed using **private** key from the previously generated pair and prepended with **public** key from this pair. Thus channel is not encrypted (this part should be taken care of by ssh if any remote access is required, along with local port redirection) but rather cryptographically verified. Without ssh redirection (or dirty firewall tricks) this is strictly local (localhost only) command line clipboard provider.
+- `-debug` enables verbose logging
+- `GCLPR_DEBUG=1` enables the same logging through the environment
+- `GCLPR_DEBUG=1` is especially useful for aliased flows such as `xdg-open`, where you may not control the full command line
+- in debug mode, detached OAuth workers write logs to a temporary file named `gclpr-worker-*.log`; the parent process prints the exact path before detaching
 
-** BREAKING CHANGE ** Starting with v1.1.0 buffer sent to the server has 8 bytes signature (string "gclpr", 1 byte major version, 1 byte minor version, 1 byte patch version). Server checks first 6 bytes of signature (that includes major version check) and rejects incompatible requests. In addition instead of sending **public** key its **sha256 hash** is being used on a wire (it has exactly the same size). As the result all versions of gclpr older than 1.1.0 are incompatible with later versions (and vice versa) - if your clipboard stopped working please upgrade. In the future only major version change will break compatibility. 
+Security model
+--------------
 
-** BREAKING CHANGE ** Starting with v2.0.0 buffers exchanged have 4 bytes length field at the begining. As the result all versions of gclpr older than 2.0.0 are incompatible with later versions (and vice versa) - if your clipboard stopped working please upgrade.
+`gclpr` authenticates requests but does not encrypt the transport on its own.
 
-On the "client" end keys are created by issuing `genkey` command. Newly created keys are placed in `${HOME}/.gclpr` directory (`${USERPROFILE}\.gclpr` on Windows).
+- every client request is signed with the client's private key
+- the server verifies the signature against a trusted public key
+- the wire protocol uses the SHA-256 hash of the public key as the request identity header
+- if you need confidentiality across machines, use SSH port forwarding or another secure transport
 
-Server reads list of all known **public** keys from `${HOME}/.gclpr/trusted` file (`${USERPROFILE}\.gclpr\trusted` on Windows). Any request with _unknown_ public key will be denied by server. Any request failing signature _verification_ will be denied by server. Thus as long as private keys are not compromised it should be pretty difficult to access clipboard or send URI to `open` maliciously using network interfaces.
+This means:
 
-File with public keys is simple text file. It supports "#" comment at the beginning of the line. Each uncommented line contains single hex encoded public key and it is user responsibility to make sure that this file is up to date and reasonably secured. URIs are parsed by golang stdlib `ParaseRequestURI` before being sent to server to further limit potential damage.
+- unauthorized clients should not be able to send clipboard or browser-open requests unless they possess a trusted private key
+- traffic is still plaintext unless protected externally
+- `gclpr` is designed around localhost exposure plus external tunneling if needed
 
-Both client and server attempt to check permissions on key files on all platforms similarly to how it is done by OpenSSH code.
+Key files
+---------
 
-Project is using public-key cryptography from golang [implementation of NaCl](https://pkg.go.dev/golang.org/x/crypto/nacl). Any additional security could be easily afforded by using ssh to redirect local service port to other computers making clipboard fully global.
+Client key material is stored in:
+
+- Linux/macOS: `${HOME}/.gclpr`
+- Windows: `${USERPROFILE}\.gclpr`
+
+The server reads trusted public keys from the `trusted` file in that directory.
+
+Format of `trusted`:
+
+- plain text
+- one hex-encoded public key per line
+- lines beginning with `#` are comments
+
+Requests are rejected when:
+
+- the client key is not listed in `trusted`
+- the request signature does not verify
+- the protocol version is incompatible
+
+`gclpr` also attempts to validate file permissions on key files, similar in spirit to OpenSSH.
+
+URI validation
+--------------
+
+The plain `open` command validates URIs before sending them to the OS opener.
+
+- dangerous schemes such as `file:`, `data:`, `javascript:`, and `vbscript:` are blocked
+- loopback tunnel targets use stricter validation and must be absolute `http://` or `https://` URLs on loopback hosts only
+
+Windows tray application
+------------------------
+
+Recent Windows releases also include `gclpr-gui.exe`, which runs the server as a notification tray application. This simplifies server lifecycle management on Windows.
+
+Packages also include a prebuilt [npiperelay.exe](https://github.com/jstarks/npiperelay) to reduce extra setup for WSL2 workflows.
+
+Compatibility notes
+-------------------
+
+Breaking changes in older releases:
+
+- v1.1.0 introduced a protocol signature with version checking and replaced the raw public key on the wire with its SHA-256 hash
+- v2.0.0 introduced a 4-byte frame length prefix
+
+As a result, versions older than those protocol changes are not wire-compatible with newer versions.
+
+Implementation note
+-------------------
+
+`gclpr` uses public-key cryptography from Go's [NaCl implementation](https://pkg.go.dev/golang.org/x/crypto/nacl).
