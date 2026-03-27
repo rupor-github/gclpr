@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -109,7 +110,7 @@ func TestTunnelOpenReservesRequestedPort(t *testing.T) {
 	tn.closeSession(resp.SessionID)
 }
 
-func TestTunnelOpenPortConflict(t *testing.T) {
+func TestTunnelOpenFallsBackToRandomPortOnConflict(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -118,13 +119,84 @@ func TestTunnelOpenPortConflict(t *testing.T) {
 
 	port := ln.Addr().(*net.TCPAddr).Port
 	tn := NewTunnel()
+	t.Cleanup(func() {
+		tn.mu.Lock()
+		ids := make([]string, 0, len(tn.sessions))
+		for id := range tn.sessions {
+			ids = append(ids, id)
+		}
+		tn.mu.Unlock()
+		for _, id := range ids {
+			tn.closeSession(id)
+		}
+	})
 	var resp TunnelOpenResponse
 	err = tn.Open(TunnelOpenRequest{URL: "http://127.0.0.1:" + strconv.Itoa(port), Targets: []TunnelTarget{{ListenHost: "127.0.0.1", ListenPort: port, DialAddr: net.JoinHostPort("127.0.0.1", strconv.Itoa(port))}}, MACKey: testTunnelMACKey}, &resp)
-	if err == nil {
-		t.Fatal("expected bind conflict error")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
 	}
-	if !strings.Contains(err.Error(), "unable to reserve tunnel listeners") {
-		t.Fatalf("unexpected error: %v", err)
+	if resp.ListenPort == port {
+		t.Fatalf("ListenPort = %d, want random port instead of conflicted %d", resp.ListenPort, port)
+	}
+	if got, wantPrefix := resp.OpenURL, "http://127.0.0.1:"; !strings.HasPrefix(got, wantPrefix) {
+		t.Fatalf("OpenURL = %q, want prefix %q", got, wantPrefix)
+	}
+	parsed, err := url.Parse(resp.OpenURL)
+	if err != nil {
+		t.Fatalf("url.Parse(%q): %v", resp.OpenURL, err)
+	}
+	if gotPort := parsed.Port(); gotPort != strconv.Itoa(resp.ListenPort) {
+		t.Fatalf("OpenURL port = %q, want %d", gotPort, resp.ListenPort)
+	}
+}
+
+func TestTunnelOpenRewritesOAuthRedirectPortOnConflict(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	port := ln.Addr().(*net.TCPAddr).Port
+	tn := NewTunnel()
+	t.Cleanup(func() {
+		tn.mu.Lock()
+		ids := make([]string, 0, len(tn.sessions))
+		for id := range tn.sessions {
+			ids = append(ids, id)
+		}
+		tn.mu.Unlock()
+		for _, id := range ids {
+			tn.closeSession(id)
+		}
+	})
+
+	var resp TunnelOpenResponse
+	err = tn.Open(TunnelOpenRequest{
+		URL:     "https://login.example.com/auth?redirect_uri=" + url.QueryEscape("http://127.0.0.1:"+strconv.Itoa(port)+"/callback"),
+		Targets: []TunnelTarget{{ListenHost: "127.0.0.1", ListenPort: port, DialAddr: net.JoinHostPort("127.0.0.1", strconv.Itoa(port))}},
+		MACKey:  testTunnelMACKey,
+	}, &resp)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if resp.ListenPort == port {
+		t.Fatalf("ListenPort = %d, want random port instead of conflicted %d", resp.ListenPort, port)
+	}
+	parsed, err := url.Parse(resp.OpenURL)
+	if err != nil {
+		t.Fatalf("url.Parse(%q): %v", resp.OpenURL, err)
+	}
+	redirectValue := parsed.Query().Get("redirect_uri")
+	if redirectValue == "" {
+		t.Fatal("redirect_uri missing from rewritten OpenURL")
+	}
+	redirectURL, err := url.Parse(redirectValue)
+	if err != nil {
+		t.Fatalf("url.Parse(redirect_uri): %v", err)
+	}
+	if gotPort := redirectURL.Port(); gotPort != strconv.Itoa(resp.ListenPort) {
+		t.Fatalf("redirect_uri port = %q, want %d", gotPort, resp.ListenPort)
 	}
 }
 

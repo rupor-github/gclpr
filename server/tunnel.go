@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
 
@@ -75,6 +76,7 @@ type tunnelListener struct {
 	listener *net.TCPListener
 	addr     string
 	dialAddr string
+	fallback bool
 }
 
 func (s *tunnelSession) close() {
@@ -189,7 +191,7 @@ func (t *Tunnel) Open(req TunnelOpenRequest, resp *TunnelOpenResponse) error {
 	session := &tunnelSession{
 		id:          sessionID,
 		url:         parsed,
-		openURL:     parsed.String(),
+		openURL:     rewriteTunnelOpenURL(parsed, targets),
 		listenAddrs: listenAddrs,
 		listeners:   targets,
 		attachTO:    attachTimeout,
@@ -317,13 +319,13 @@ func (t *Tunnel) bindListeners(targets []TunnelTarget) ([]*tunnelListener, []str
 			continue
 		}
 		for _, addr := range addrs {
-			listener, err := t.listenTCP("tcp", addr)
+			listener, fallback, err := t.listenTunnelAddr(addr)
 			if err != nil {
 				log.Printf("failed binding tunnel listener %s for dial=%q: %v", addr.String(), target.DialAddr, err)
 				bindErrs = append(bindErrs, fmt.Errorf("%s: %w", addr.String(), err))
 				continue
 			}
-			targetListener := &tunnelListener{listener: listener, addr: listener.Addr().String(), dialAddr: target.DialAddr}
+			targetListener := &tunnelListener{listener: listener, addr: listener.Addr().String(), dialAddr: target.DialAddr, fallback: fallback}
 			listeners = append(listeners, targetListener)
 			listenAddrs = append(listenAddrs, targetListener.addr)
 			log.Printf("bound tunnel listener %s -> %s", targetListener.addr, targetListener.dialAddr)
@@ -335,6 +337,69 @@ func (t *Tunnel) bindListeners(targets []TunnelTarget) ([]*tunnelListener, []str
 	}
 
 	return listeners, listenAddrs, nil
+}
+
+func (t *Tunnel) listenTunnelAddr(addr *net.TCPAddr) (*net.TCPListener, bool, error) {
+	listener, err := t.listenTCP("tcp", addr)
+	if err == nil {
+		return listener, false, nil
+	}
+	if addr.Port == 0 || !errors.Is(err, syscall.EADDRINUSE) {
+		return nil, false, err
+	}
+	fallbackAddr := &net.TCPAddr{IP: append(net.IP(nil), addr.IP...), Port: 0}
+	listener, fallbackErr := t.listenTCP("tcp", fallbackAddr)
+	if fallbackErr != nil {
+		return nil, false, errors.Join(err, fallbackErr)
+	}
+	log.Printf("tunnel listener %s unavailable, using random port %s", addr.String(), listener.Addr())
+	return listener, true, nil
+}
+
+func rewriteTunnelOpenURL(parsed *url.URL, listeners []*tunnelListener) string {
+	if !tunnelListenersUseFallback(listeners) || len(listeners) == 0 {
+		return parsed.String()
+	}
+	actualAddr := listeners[0].listener.Addr().(*net.TCPAddr)
+	actualHostPort := net.JoinHostPort(actualAddr.IP.String(), strconv.Itoa(actualAddr.Port))
+
+	if isLoopbackTunnelURL(parsed) {
+		updated := *parsed
+		updated.Host = actualHostPort
+		return updated.String()
+	}
+
+	redirectValue := parsed.Query().Get("redirect_uri")
+	if redirectValue == "" {
+		return parsed.String()
+	}
+	redirectURL, err := ParseTunnelURL(redirectValue)
+	if err != nil {
+		return parsed.String()
+	}
+	redirectURL.Host = actualHostPort
+	updated := *parsed
+	query := updated.Query()
+	query.Set("redirect_uri", redirectURL.String())
+	updated.RawQuery = query.Encode()
+	return updated.String()
+}
+
+func tunnelListenersUseFallback(listeners []*tunnelListener) bool {
+	for _, listener := range listeners {
+		if listener.fallback {
+			return true
+		}
+	}
+	return false
+}
+
+func isLoopbackTunnelURL(parsed *url.URL) bool {
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return false
+	}
+	return isLoopbackTunnelHost(parsed.Hostname())
 }
 
 func validateTunnelTarget(target TunnelTarget) error {
