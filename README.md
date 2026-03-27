@@ -64,12 +64,46 @@ Options:
         Print debugging information
   -help
         Show help
+  -oauth
+        Tunnel OAuth redirect_uri callback listener for open
   -line-ending string
         Convert Line Endings (LF/CRLF)
   -port int
         TCP port number (default 2850)
+  -timeout duration
+        Read/write I/O timeout (default 1m0s)
+  -tunnel
+        Tunnel loopback http(s) targets for open
 ```
-You could replace `pbcopy`, `pbpaste` and `xgd-open` with `gclpr` aliases - it will recognize names. Note, that TCP address cannot be changed (unlike in lemonade) - both client and server are always using `localhost`, only port could vary.
+You can replace `pbcopy`, `pbpaste`, and `xdg-open` with `gclpr` aliases - it will recognize those names automatically. Note that the TCP address cannot be changed (unlike in lemonade) - both client and server always use `localhost`, only the port can vary.
+
+`open` now supports two different browser-tunnel modes:
+
+- `open -tunnel http://localhost:3000` is a strict generic TCP tunnel for explicit loopback URLs.
+- `open -oauth <authorization-url>` parses `redirect_uri` from the OAuth authorization URL, prepares a matching tunnel, and then opens the authorization URL in the server browser.
+
+When `gclpr` is invoked through the `xdg-open` alias, `-oauth` is enabled automatically. OAuth setup is best-effort in this mode: if tunnel setup fails, `gclpr` falls back to a normal remote `open` request.
+
+For compatibility with callers such as `az login`, OAuth mode launches a detached background worker to own the tunnel and lets the original `xdg-open` / `open -oauth` process return immediately after the worker attaches.
+
+Debugging notes:
+
+- `-debug` enables verbose client logging.
+- `GCLPR_DEBUG=1` enables the same logging through the environment, which is useful when `gclpr` is invoked via the `xdg-open` alias and extra CLI flags cannot be passed.
+- In debug mode, detached OAuth workers write their logs to a temporary file created as `gclpr-worker-*.log`; the parent process prints the exact path before detaching.
+
+Example with Azure CLI on Linux:
+
+```bash
+export BROWSER=xdg-open
+az login -t <tenant>
+```
+
+If you need debug logs for the aliased browser flow:
+
+```bash
+GCLPR_DEBUG=1 BROWSER=xdg-open az login -t <tenant>
+```
 
 Recent Windows versions also include `gclpr-gui.exe` tools which allows you to run `server` command as notification tray icon on Windows simplifying life cycle management and packages pre-built [npiperelay.exe](https://github.com/jstarks/npiperelay) to avoid "scoop" installing additional packages needed by WSL2.
 
