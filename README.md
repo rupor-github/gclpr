@@ -16,8 +16,24 @@ It provides three client-side operations:
 
 The transport is always TCP over `localhost`. If you want to use `gclpr` across machines, the intended setup is SSH local port forwarding so both ends still talk to `localhost`.
 
-Why this exists
----------------
+## Table of Contents
+
+- [Why this exists](#why-this-exists)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Remote setup over SSH](#remote-setup-over-ssh)
+- [Commands and options](#commands-and-options)
+- [Alias behavior](#alias-behavior)
+- [Open modes](#open-modes)
+- [Debugging](#debugging)
+- [Security model](#security-model)
+- [Key files](#key-files)
+- [URI validation](#uri-validation)
+- [Windows tray application](#windows-tray-application)
+- [Compatibility notes](#compatibility-notes)
+- [Implementation note](#implementation-note)
+
+## Why this exists
 
 `gclpr` was inspired by [lemonade](https://github.com/lemonade-command/lemonade), but focuses on a few practical constraints:
 
@@ -27,8 +43,9 @@ Why this exists
 
 Instead of exposing a plaintext clipboard service to whoever can reach a port, every client request is signed with a private key and verified by the server against trusted public keys.
 
-Installation
-------------
+## Installation
+
+`gclpr` is distributed as a single, zero-configuration binary with no external dependencies.
 
 Windows users can install and update `gclpr` with [scoop](https://scoop.sh/):
 
@@ -37,7 +54,7 @@ scoop install https://github.com/rupor-github/gclpr/releases/latest/download/gcl
 scoop update gclpr
 ```
 
-On all supported platforms, you can also download archives from the [releases page](https://github.com/rupor-github/gclpr/releases) and unpack them anywhere convenient.
+On all supported platforms, you can also download archives from the [releases page](https://github.com/rupor-github/gclpr/releases) and unpack them anywhere convenient. **Windows releases include both `gclpr.exe` (the standard CLI) and `gclpr-gui.exe` (a system tray application for running the server in the background).**
 
 Starting with v1.1.1, release archives are zip files signed with [minisign](https://jedisct1.github.io/minisign/). Public key:
 
@@ -46,8 +63,7 @@ Starting with v1.1.1, release archives are zip files signed with [minisign](http
     <span style="vertical-align:middle;">&nbsp;&nbsp;RWTNh1aN8DrXq26YRmWO3bPBx4m8jBATGXt4Z96DF4OVSzdCBmoAU+Vq</span>
 </p>
 
-Quick start
------------
+## Quick start
 
 1. On the client side, create a key pair:
 
@@ -66,6 +82,8 @@ gclpr genkey
 gclpr server
 ```
 
+*(On Windows, you can simply launch `gclpr-gui.exe` instead to run the server as a background tray application.)*
+
 4. Use the client commands:
 
 ```bash
@@ -74,8 +92,7 @@ gclpr paste
 gclpr open 'https://example.com'
 ```
 
-Remote setup over SSH
----------------------
+## Remote setup over SSH
 
 `gclpr` always connects to `localhost`. To use a remote server, forward the remote server port to local `localhost` with SSH.
 
@@ -83,6 +100,16 @@ Example:
 
 ```bash
 ssh -L 2850:localhost:2850 user@remote-host
+```
+
+
+```text
+[ Client Machine ]                           [ Server Machine ]
+gclpr client                                 gclpr server (port 2850)
+(gclpr copy/open)                            (Clipboard / OS Browser)
+       |                                              ^
+       |             SSH Port Forwarding              |
+  localhost:2850 ----------------------------> localhost:2850
 ```
 
 With that tunnel in place:
@@ -93,8 +120,7 @@ With that tunnel in place:
 
 This design is intentional. `gclpr` does not try to listen on non-loopback interfaces directly.
 
-Commands and options
---------------------
+## Commands and options
 
 Typical CLI help looks like this:
 
@@ -126,8 +152,7 @@ Important clarifications:
 - `copy`, `paste`, and `open` are client commands; `server` is the long-running service.
 - `open` without `-tunnel` or `-oauth` is a plain remote browser-open request with no callback tunnel.
 
-Alias behavior
---------------
+## Alias behavior
 
 `gclpr` can be invoked through compatible command names:
 
@@ -141,8 +166,7 @@ There is one special rule:
 
 This is meant for tools such as Azure CLI that launch the browser through `xdg-open` and expect a localhost OAuth callback.
 
-Open modes
-----------
+## Open modes
 
 `open` supports three distinct behaviors.
 
@@ -161,6 +185,17 @@ gclpr open -tunnel 'http://localhost:3000'
 ```
 
 Use this when the browser on the server must reach an HTTP(S) service that is available only on the client loopback interface.
+
+
+```text
+[ Client Machine ]                                [ Server Machine ]
+gclpr open -tunnel --------(RPC setup)--------->  gclpr server
+                                                  (binds localhost:PORT)
+                                                          |
+Local HTTP Service <----(Multiplexed Tunnel)----- OS Browser opens
+(localhost:3000)                                  http://localhost:PORT
+```
+
 
 How it works:
 
@@ -187,6 +222,20 @@ gclpr open -oauth 'https://login.example.com/auth?...&redirect_uri=http%3A%2F%2F
 ```
 
 Use this when the authorization URL contains a localhost `redirect_uri` and the callback must reach a service listening on the client machine.
+
+
+```text
+[ Client Machine ]                                [ Server Machine ]
+gclpr open -oauth ---------(RPC setup)--------->  gclpr server
+(Original Exits)                                  (binds localhost:PORT)
+       |                                                  |
+(Worker Detaches)                                 (1. Browser authenticates
+       |                                              with External IdP)
+       |                                                  |
+Local Callback   <------(Multiplexed Tunnel)----- OS Browser redirected to
+(localhost:3000)                                  http://localhost:PORT/callback
+```
+
 
 How it works:
 
@@ -221,16 +270,14 @@ Debugging aliased browser flow:
 GCLPR_DEBUG=1 BROWSER=xdg-open az login -t <tenant>
 ```
 
-Debugging
----------
+## Debugging
 
 - `-debug` enables verbose logging
 - `GCLPR_DEBUG=1` enables the same logging through the environment
 - `GCLPR_DEBUG=1` is especially useful for aliased flows such as `xdg-open`, where you may not control the full command line
 - in debug mode, detached OAuth workers write logs to a temporary file named `gclpr-worker-*.log`; the parent process prints the exact path before detaching
 
-Security model
---------------
+## Security model
 
 `gclpr` authenticates requests but does not encrypt the transport on its own.
 
@@ -245,8 +292,7 @@ This means:
 - traffic is still plaintext unless protected externally
 - `gclpr` is designed around localhost exposure plus external tunneling if needed
 
-Key files
----------
+## Key files
 
 Client key material is stored in:
 
@@ -269,32 +315,29 @@ Requests are rejected when:
 
 `gclpr` also attempts to validate file permissions on key files, similar in spirit to OpenSSH.
 
-URI validation
---------------
+## URI validation
 
 The plain `open` command validates URIs before sending them to the OS opener.
 
 - dangerous schemes such as `file:`, `data:`, `javascript:`, and `vbscript:` are blocked
 - loopback tunnel targets use stricter validation and must be absolute `http://` or `https://` URLs on loopback hosts only
 
-Windows tray application
-------------------------
+## Windows tray application
 
-Recent Windows releases also include `gclpr-gui.exe`, which runs the server as a notification tray application. This simplifies server lifecycle management on Windows.
+Windows releases include `gclpr-gui.exe`, which runs the server as a notification tray application to simplify lifecycle management.
 
 Packages also include a prebuilt [npiperelay.exe](https://github.com/jstarks/npiperelay) to reduce extra setup for WSL2 workflows.
 
-Compatibility notes
--------------------
+## Compatibility notes
 
 Breaking changes in older releases:
 
 - v1.1.0 introduced a protocol signature with version checking and replaced the raw public key on the wire with its SHA-256 hash
 - v2.0.0 introduced a 4-byte frame length prefix
+- v2.1.0 added explicit localhost tunneling and OAuth handling modes.
 
 As a result, versions older than those protocol changes are not wire-compatible with newer versions.
 
-Implementation note
--------------------
+## Implementation note
 
 `gclpr` uses public-key cryptography from Go's [NaCl implementation](https://pkg.go.dev/golang.org/x/crypto/nacl).
