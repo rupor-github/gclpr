@@ -357,7 +357,10 @@ func (t *Tunnel) listenTunnelAddr(addr *net.TCPAddr) (*net.TCPListener, bool, er
 }
 
 func rewriteTunnelOpenURL(parsed *url.URL, listeners []*tunnelListener) string {
-	if !tunnelListenersUseFallback(listeners) || len(listeners) == 0 {
+	if len(listeners) == 0 {
+		return parsed.String()
+	}
+	if !tunnelListenersUseFallback(listeners) && !tunnelListenersNeedSingleStackRewrite(parsed, listeners) {
 		return parsed.String()
 	}
 	actualAddr := listeners[0].listener.Addr().(*net.TCPAddr)
@@ -392,6 +395,20 @@ func tunnelListenersUseFallback(listeners []*tunnelListener) bool {
 		}
 	}
 	return false
+}
+
+func tunnelListenersNeedSingleStackRewrite(parsed *url.URL, listeners []*tunnelListener) bool {
+	if !isLoopbackTunnelURL(parsed) || !strings.EqualFold(parsed.Hostname(), "localhost") {
+		return false
+	}
+	if len(listeners) != 1 {
+		return false
+	}
+	addr, ok := listeners[0].listener.Addr().(*net.TCPAddr)
+	if !ok || addr == nil || addr.IP == nil {
+		return false
+	}
+	return addr.IP.IsLoopback()
 }
 
 func isLoopbackTunnelURL(parsed *url.URL) bool {

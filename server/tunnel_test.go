@@ -264,3 +264,24 @@ func TestTunnelOpenRequiresTargets(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestRewriteTunnelOpenURLSingleStackLocalhost(t *testing.T) {
+	ln, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	parsed, err := url.Parse("http://localhost:3000/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rewritten := rewriteTunnelOpenURL(parsed, []*tunnelListener{{listener: ln, addr: ln.Addr().String()}})
+	if wantPrefix := "http://127.0.0.1:"; !strings.HasPrefix(rewritten, wantPrefix) {
+		t.Fatalf("rewriteTunnelOpenURL() = %q, want prefix %q", rewritten, wantPrefix)
+	}
+	if !strings.HasSuffix(rewritten, "/callback") {
+		t.Fatalf("rewriteTunnelOpenURL() = %q, want callback path preserved", rewritten)
+	}
+}
