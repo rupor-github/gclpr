@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,12 @@ import (
 )
 
 var applyWorkerDetach = func(cmd *exec.Cmd) {}
+var oauthWorkerStartTunnelClient = startTunnelClient
+
+type oauthWorkerHandshake struct {
+	SessionID string `json:"session_id"`
+	MACKey    string `json:"mac_key"`
+}
 
 func launchOAuthWorker(resp server.TunnelOpenResponse, macKey []byte) error {
 	executable, err := os.Executable()
@@ -43,8 +50,6 @@ func launchOAuthWorker(resp server.TunnelOpenResponse, macKey []byte) error {
 		"--port", fmt.Sprintf("%d", aPort),
 		"--connect-timeout", aConnectTimeout.String(),
 		"--timeout", aIOTimeout.String(),
-		"--worker-session-id", resp.SessionID,
-		"--worker-mac-key", hex.EncodeToString(macKey),
 		"--worker-status-addr", statusAddr,
 	)
 	if aDebug {
@@ -72,6 +77,10 @@ func launchOAuthWorker(resp server.TunnelOpenResponse, macKey []byte) error {
 			return
 		}
 		defer conn.Close()
+		if err := json.NewEncoder(conn).Encode(oauthWorkerHandshake{SessionID: resp.SessionID, MACKey: hex.EncodeToString(macKey)}); err != nil {
+			resultCh <- err
+			return
+		}
 		line, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil && err != io.EOF {
 			resultCh <- err
@@ -100,41 +109,50 @@ func launchOAuthWorker(resp server.TunnelOpenResponse, macKey []byte) error {
 
 func runOAuthWorker() error {
 	report := func(msg string) {}
+	handshake := oauthWorkerHandshake{}
 	if aWorkerStatusAddr != "" {
 		conn, err := net.DialTimeout("tcp", aWorkerStatusAddr, aConnectTimeout)
 		if err == nil {
 			defer conn.Close()
+			if err := json.NewDecoder(conn).Decode(&handshake); err != nil {
+				err = fmt.Errorf("oauth worker failed to read startup payload: %w", err)
+				report = func(msg string) {
+					_, _ = io.WriteString(conn, msg+"\n")
+				}
+				report("ERR " + err.Error())
+				return err
+			}
 			report = func(msg string) {
 				_, _ = io.WriteString(conn, msg+"\n")
 			}
 		}
 	}
-	if aWorkerSessionID == "" {
+	if handshake.SessionID == "" {
 		err := fmt.Errorf("oauth worker session id is required")
 		report("ERR " + err.Error())
 		return err
 	}
-	if aWorkerMACKey == "" {
+	if handshake.MACKey == "" {
 		err := fmt.Errorf("oauth worker mac key is required")
 		report("ERR " + err.Error())
 		return err
 	}
-	macKey, err := hex.DecodeString(aWorkerMACKey)
+	macKey, err := hex.DecodeString(handshake.MACKey)
 	if err != nil {
 		err = fmt.Errorf("invalid oauth worker mac key: %w", err)
 		report("ERR " + err.Error())
 		return err
 	}
 	resp := server.TunnelOpenResponse{
-		SessionID:     aWorkerSessionID,
+		SessionID:     handshake.SessionID,
 		AttachTimeout: aConnectTimeout,
 		IdleTimeout:   aIOTimeout,
 	}
-	log.Printf("oauth worker started pid=%d session=%s", os.Getpid(), aWorkerSessionID)
+	log.Printf("oauth worker started pid=%d session=%s", os.Getpid(), handshake.SessionID)
 	if resp.IdleTimeout <= 0 {
 		resp.IdleTimeout = time.Minute
 	}
-	err = startTunnelClient(resp, macKey, aConnectTimeout, func() error {
+	err = oauthWorkerStartTunnelClient(resp, macKey, aConnectTimeout, func() error {
 		report("OK")
 		return nil
 	})

@@ -429,8 +429,11 @@ Breaking changes in older releases:
 - v1.1.0 introduced a protocol signature with version checking and replaced the raw public key on the wire with its SHA-256 hash
 - v2.0.0 introduced a 4-byte frame length prefix
 - v2.1.0 added explicit localhost tunneling and OAuth handling modes.
+- v2.2.0 changed the internal detached OAuth worker startup handshake to exchange the session id and MAC key over the startup TCP connection instead of command-line flags.
 
 As a result, versions older than those protocol changes are not wire-compatible with newer versions.
+
+The `v2.2.0` change affects only the internal parent-to-worker startup protocol used by `internal-oauth-worker`; normal client/server RPC and tunnel protocol compatibility is unchanged.
 
 ## Implementation note
 

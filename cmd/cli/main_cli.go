@@ -76,8 +76,6 @@ var (
 	aDebug            bool
 	aTunnel           bool
 	aOAuth            bool
-	aWorkerSessionID  string
-	aWorkerMACKey     string
 	aWorkerStatusAddr string
 	aData             string
 	aConnectTimeout   time.Duration
@@ -413,8 +411,6 @@ func main() {
 	cli.DurationVar(&aIOTimeout, "timeout", time.Minute, "Read/write I/O timeout")
 	cli.BoolVar(&aTunnel, "tunnel", false, "Tunnel loopback http(s) targets for open")
 	cli.BoolVar(&aOAuth, "oauth", false, "Tunnel OAuth redirect_uri callback listener for open")
-	cli.StringVar(&aWorkerSessionID, "worker-session-id", "", "Internal: oauth worker session id")
-	cli.StringVar(&aWorkerMACKey, "worker-mac-key", "", "Internal: oauth worker mac key")
 	cli.StringVar(&aWorkerStatusAddr, "worker-status-addr", "", "Internal: oauth worker status address")
 	cli.BoolVar(&aDebug, "debug", false, "Print debugging information")
 
