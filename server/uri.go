@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"path/filepath"
 	"strings"
 
 	"github.com/skratchdot/open-golang/open"
@@ -46,6 +45,10 @@ func (u *URI) Open(uri string, _ *struct{}) error {
 
 // ParseOpenURI validates that the URI can be safely passed to the OS opener.
 func ParseOpenURI(raw string) (*url.URL, error) {
+	if isWindowsLocalPath(raw) {
+		return nil, fmt.Errorf("local paths are not allowed")
+	}
+
 	parsed, err := url.Parse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("invalid URI: %w", err)
@@ -55,18 +58,42 @@ func ParseOpenURI(raw string) (*url.URL, error) {
 	if blockedSchemes[scheme] {
 		return nil, fmt.Errorf("URI scheme %q is not allowed", scheme)
 	}
+	if scheme != "" {
+		return parsed, nil
+	}
+	if parsed.Host != "" || strings.HasPrefix(raw, "//") {
+		return nil, fmt.Errorf("local paths are not allowed")
+	}
+	if !isBrowserHostShorthand(raw) {
+		return nil, fmt.Errorf("local paths are not allowed")
+	}
 
 	return parsed, nil
 }
 
+func isWindowsLocalPath(raw string) bool {
+	if strings.HasPrefix(raw, `\\`) || strings.HasPrefix(raw, `.\`) || strings.HasPrefix(raw, `..\`) {
+		return true
+	}
+	if len(raw) >= 2 && raw[1] == ':' && ((raw[0] >= 'A' && raw[0] <= 'Z') || (raw[0] >= 'a' && raw[0] <= 'z')) {
+		return true
+	}
+	return strings.Contains(raw, `\`)
+}
+
+func isBrowserHostShorthand(raw string) bool {
+	if raw == "" || strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../") {
+		return false
+	}
+	candidate, err := url.ParseRequestURI("https://" + raw)
+	if err != nil {
+		return false
+	}
+	return candidate.Hostname() != ""
+}
+
 func normalizeOpenURI(parsed *url.URL, raw string) string {
-	if parsed.Scheme != "" || parsed.Host != "" || strings.HasPrefix(raw, "//") {
-		return raw
-	}
-	if strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../") {
-		return raw
-	}
-	if vol := filepath.VolumeName(raw); vol != "" {
+	if parsed.Scheme != "" {
 		return raw
 	}
 	return "https://" + raw

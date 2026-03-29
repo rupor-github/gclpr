@@ -38,6 +38,16 @@ func TestURIOpenBlocklist(t *testing.T) {
 		{name: "data", uri: "data:text/html,<h1>hi</h1>", wantErr: `"data" is not allowed`},
 		{name: "javascript", uri: "javascript:alert(1)", wantErr: `"javascript" is not allowed`},
 		{name: "vbscript", uri: "vbscript:MsgBox", wantErr: `"vbscript" is not allowed`},
+
+		// Blocked local paths
+		{name: "unix absolute path", uri: "/etc/passwd", wantErr: `local paths are not allowed`},
+		{name: "unix relative path", uri: "./foo.html", wantErr: `local paths are not allowed`},
+		{name: "unix parent relative path", uri: "../foo.html", wantErr: `local paths are not allowed`},
+		{name: "windows drive path", uri: `C:\Windows\System32\calc.exe`, wantErr: `local paths are not allowed`},
+		{name: "windows relative path", uri: `.\foo.html`, wantErr: `local paths are not allowed`},
+		{name: "windows parent relative path", uri: `..\foo.html`, wantErr: `local paths are not allowed`},
+		{name: "unc path", uri: `\\server\share`, wantErr: `local paths are not allowed`},
+		{name: "scheme relative path", uri: "//server/share", wantErr: `local paths are not allowed`},
 	}
 
 	for _, tc := range tests {
