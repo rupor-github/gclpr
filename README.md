@@ -193,6 +193,8 @@ gclpr open 'https://example.com'
 
 The client sends the URL to the server and the server opens it in its default browser.
 
+Plain `open` also accepts bare hostnames such as `example.com` and normalizes them to `https://example.com` before launching the browser.
+
 ### 2. Explicit tunnel mode
 
 ```bash
@@ -335,6 +337,8 @@ Requests are rejected when:
 The plain `open` command validates URIs before sending them to the OS opener.
 
 - dangerous schemes such as `file:`, `data:`, `javascript:`, and `vbscript:` are blocked
+- local filesystem-style paths are rejected, including Unix paths, Windows drive paths, UNC paths, and scheme-relative paths
+- bare hostnames such as `example.com` are accepted and normalized to `https://example.com`
 - loopback tunnel targets use stricter validation and must be absolute `http://` or `https://` URLs on loopback hosts only
 
 ## Windows tray application
