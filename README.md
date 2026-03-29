@@ -30,6 +30,7 @@ The transport is always TCP over `localhost`. If you want to use `gclpr` across 
 - [Key files](#key-files)
 - [URI validation](#uri-validation)
 - [Windows tray application](#windows-tray-application)
+- [Sample use cases](#sample-use-cases)
 - [Compatibility notes](#compatibility-notes)
 - [Implementation note](#implementation-note)
 
@@ -78,11 +79,19 @@ gclpr genkey
 
 3. Start the server on the machine that owns the clipboard and browser you want to use:
 
+Linux/macOS:
+
 ```bash
 gclpr server
 ```
 
-*(On Windows, you can simply launch `gclpr-gui.exe` instead to run the server as a background tray application.)*
+Windows:
+
+```powershell
+gclpr-gui.exe
+```
+
+On Windows, `gclpr-gui.exe` is the normal server entry point. Use `gclpr.exe` there as the client CLI.
 
 4. Use the client commands:
 
@@ -330,9 +339,74 @@ The plain `open` command validates URIs before sending them to the OS opener.
 
 ## Windows tray application
 
-Windows releases include `gclpr-gui.exe`, which runs the server as a notification tray application to simplify lifecycle management.
+On Windows, use `gclpr-gui.exe` as the server entry point. It runs the server as a notification tray application to simplify lifecycle management.
+
+Use `gclpr.exe` for client-side commands such as `copy`, `paste`, and `open`.
 
 Packages also include a prebuilt [npiperelay.exe](https://github.com/jstarks/npiperelay) to reduce extra setup for WSL2 workflows.
+
+## Sample use cases
+
+The examples below assume the Windows release is unpacked into a stable Windows-side location that is visible from WSL, for example `$HOME/winhome/.wsl/`, and that `gclpr` communication is already working, including SSH port forwarding where required. Adjust that path if you expose Windows files somewhere else.
+
+### Case 1. Multiple WSL2 sessions, one Windows server
+
+Run `gclpr-gui.exe` on Windows and let every WSL2 shell or editor call the Windows-side `gclpr.exe`. This keeps one clipboard/browser server on Windows while multiple WSL2 sessions share it.
+
+For shell-driven browser opens from WSL, add this to `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export GCLPR_WIN="$HOME/winhome/.wsl/gclpr.exe"
+export BROWSER="$GCLPR_WIN open"
+```
+
+This is an explicit `open` command path for tools that honor `BROWSER`.
+
+For Neovim inside WSL, point the clipboard provider at the same Windows-side binary:
+
+```lua
+local gclpr = ""
+if vim.fn.executable("gclpr") == 1 then -- clipboard provider https://github.com/rupor-github/gclpr
+	gclpr = "gclpr"
+	if vim.env.WSL_DISTRO_NAME then
+		-- We are inside WSL - reach out to the Windows side.
+		gclpr = vim.env.HOME .. "/winhome/.wsl/gclpr.exe"
+	end
+end
+
+if #gclpr > 0 then
+	vim.g.clipboard = {
+		name = gclpr,
+		paste = {
+			["*"] = string.format("%s paste --line-ending lf", gclpr),
+			["+"] = string.format("%s paste --line-ending lf", gclpr),
+		},
+		copy = {
+			["*"] = string.format("%s copy", gclpr),
+			["+"] = string.format("%s copy", gclpr),
+		},
+		cache_enabled = true,
+	}
+end
+```
+
+In this setup, the Windows side remains the only server, Neovim opens links in the Windows-side browser, and the system clipboard is shared between the Windows host and all WSL2 sessions through the Windows client binary.
+
+### Case 2. Multiple SSH sessions with port forwarding
+
+With SSH port forwarding configured as described above, you can keep `gclpr-gui.exe` running on Windows and use the normal Linux `gclpr` binary from multiple SSH sessions.
+
+For shell-driven browser opens on the Linux side, add this to `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export BROWSER="gclpr open"
+```
+
+With the same Neovim clipboard configuration shown above, `gclpr` resolves to the Linux binary in SSH sessions and uses the forwarded `localhost:2850` connection to reach the Windows server.
+
+For OAuth-style flows such as `az login`, you can create an `xdg-open` symbolic link to `gclpr` somewhere in your user `PATH` and set `BROWSER=xdg-open`. That lets headless remote environments transparently route browser launches through `gclpr`, which then handles the localhost callback tunnel and completes authentication in the Windows-side browser. You can also call `gclpr open -oauth` explicitly when you want the same behavior without relying on the alias.
+
+In this setup, links still open in the Windows-side browser, and the system clipboard is shared between the Windows host and all forwarded SSH sessions.
 
 ## Compatibility notes
 
