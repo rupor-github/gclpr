@@ -162,6 +162,21 @@ func main() {
 		os.Exit(0)
 	}
 
+	if !aUnlocked {
+		locked, err := currentSessionLocked()
+		if err != nil {
+			util.ShowOKMessage(util.MsgError, title, err.Error())
+			os.Exit(1)
+		}
+		if locked {
+			atomic.StoreInt32(&lock, 1)
+			log.Print("Session starts locked")
+		} else {
+			atomic.StoreInt32(&lock, 0)
+			log.Print("Session starts unlocked")
+		}
+	}
+
 	util.NewLogWriter(title, 0, aDebug)
 
 	// Only allow single instance of gui to run
