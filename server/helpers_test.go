@@ -36,11 +36,7 @@ func TestConvertLE(t *testing.T) {
 		{"crlf: lone lf at start", "\nabc", "crlf", "\r\nabc"},
 		{"crlf: lone cr at end", "abc\r", "crlf", "abc\r\n"},
 		{"lf: multiple cr", "\r\r\r", "lf", "\n\n\n"},
-		// NOTE: consecutive bare LFs are only partially converted because the
-		// regex requires a preceding non-\r character (or start-of-string) as
-		// a capture group. After the first \n is replaced with \r\n, the next
-		// \n has \n (not a non-\r char) preceding it and is skipped.
-		{"crlf: multiple lf (regex limitation)", "\n\n\n", "crlf", "\n\r\n\n"},
+		{"crlf: multiple lf", "\n\n\n", "crlf", "\r\n\r\n\r\n"},
 	}
 
 	for _, tc := range tests {
