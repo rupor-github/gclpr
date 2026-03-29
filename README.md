@@ -99,9 +99,15 @@ gclpr open 'https://example.com'
 Example:
 
 ```bash
-ssh -L 2850:localhost:2850 user@remote-host
+ssh -R 2850:localhost:2850 user@remote-host
 ```
 
+Alternatively, you can configure this permanently in your `~/.ssh/config`:
+
+```text
+Host remote-host
+  RemoteForward 2850 localhost:2850
+```
 
 ```text
 [ Client Machine ]                           [ Server Machine ]
