@@ -15,7 +15,7 @@ vars:
 
   REF_VER: '{{regexFind "refs/tags/v[0-9]+\\.[0-9]+\\.?[0-9]*[-a-zA-Z0-9+]*" (env "GITHUB_REF")}}'
 
-  TARGET_RELEASES: [linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64-.exe]
+  TARGET_RELEASES: [linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-arm64-.exe, windows-amd64-.exe]
 
   TATN: {sh: '{{if (env "TERM")}}tput setaf 4{{end}}'}
   TOFF: {sh: '{{if (env "TERM")}}tput sgr0{{end}}'}
@@ -85,6 +85,7 @@ tasks:
           GOOS: '{{with $arch := split "-" .ITEM}}{{$arch._0}}{{end}}'
           GOARCH: '{{with $arch := split "-" .ITEM}}{{$arch._1}}{{end}}'
           SUFFIX: '{{with $arch := split "-" .ITEM}}{{$arch._2}}{{end}}'
+      - task: generate-scoop-json
 
   release-for-platform-windows:
     internal: true
@@ -94,7 +95,7 @@ tasks:
     label: release-for-platform-windows-{{.GOOS}}-{{.GOARCH}}
     vars:
       BUILD_DIR: '{{.REL_BUILD_DIR}}_{{.GOOS}}_{{.GOARCH}}'
-      REL_NAME: '{{.REL_BUILD_DIR}}/gclpr_win64'
+      REL_NAME: '{{.REL_BUILD_DIR}}/gclpr_{{.GOOS}}_{{.GOARCH}}'
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - defer: rm -rf {{.BUILD_DIR}}
@@ -113,8 +114,6 @@ tasks:
           DST: '{{.BUILD_DIR}}/npiperelay{{.SUFFIX}}'
       - echo "{{.TATN}}Archiving release \"{{.REL_NAME}}.zip\"{{.TOFF}}"
       - 7z a -r -bd -bso0 -tzip {{.REL_NAME}} ./{{.BUILD_DIR}}/*
-      - task: generate-scoop-json
-        vars: {TARGET: '{{.REL_NAME}}.zip'}
     status:
       - test -f '{{.REL_NAME}}.zip'
 
@@ -368,9 +367,6 @@ tasks:
   generate-scoop-json:
     internal: true
     desc: Generates scoop manifest for windows gui.
-    run: when_changed
-    requires:
-      vars: [TARGET]
     vars:
       VER: '{{if .REF_VER}}{{regexFind "[0-9]+\\.[0-9]+\\.?[0-9]*[-a-zA-Z0-9+]*" .REF_VER}}{{else}}0.0.0-dev{{end}}'
       MAGIC: '{{regexFind "[0-9]+\\.[0-9]+\\.[0-9]" .VER}}'
@@ -379,41 +375,77 @@ tasks:
       PATCH: '{{with $arch := split "." .MAGIC}}{{$arch._2}}{{end}}'
       DIR: '{{.ROOT_DIR}}'
       FILE: '{{.ROOT_DIR}}/gclpr.json'
-      HASH:
-        sh: sha256sum -z {{.TARGET}} | awk '{ print $1; }'
-    env:
-      # to put unexpanded "$version" in a file we need this
-      URL: 'https://github.com/rupor-github/gclpr/releases/download/v$version/{{base .TARGET}}'
+      WINDOWS_REQUESTED: '{{regexMatch "windows-(amd64|arm64)-\\.exe" (printf "%v" .TARGET_RELEASES)}}'
+      AMD64_TARGET: '{{.ROOT_DIR}}/{{.REL_BUILD_DIR}}/gclpr_windows_amd64.zip'
+      ARM64_TARGET: '{{.ROOT_DIR}}/{{.REL_BUILD_DIR}}/gclpr_windows_arm64.zip'
+    status:
+      - test '{{.WINDOWS_REQUESTED}}' = 'false'
     cmds:
       - |
-        cat << EOF > {{.FILE}}
+        amd64='{{.AMD64_TARGET}}'
+        arm64='{{.ARM64_TARGET}}'
+
+        if [ ! -f "$amd64" ] && [ ! -f "$arm64" ]; then
+          exit 0
+        fi
+
         {
-            "version": "{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}",
-            "description": "Simple utility tool - copy, paste and open browser over localhost TCP.",
-            "homepage": "https://github.com/rupor-github/gclpr",
-            "license": "MIT",
-            "architecture": {
-                "64bit": {
-                    "url": "https://github.com/rupor-github/gclpr/releases/download/v{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}/{{base .TARGET}}",
-                    "hash": "{{.HASH}}"
-                }
-            },
-            "checkver": {
-                "github": "https://github.com/rupor-github/gclpr"
-            },
-            "autoupdate": {
-                "architecture": {
-                    "64bit": {
-                        "url": "{{print "$URL"}}"
-                    }
-                }
-            }
-        }
-        EOF
-    sources:
-      - .git/index
-    generates:
-      - '{{.FILE}}'
+          printf '{\n'
+          printf '    "version": "{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}",\n'
+          printf '    "description": "Simple utility tool - copy, paste and open browser over localhost TCP.",\n'
+          printf '    "homepage": "https://github.com/rupor-github/gclpr",\n'
+          printf '    "license": "MIT",\n'
+          printf '    "architecture": {\n'
+
+          first=1
+          if [ -f "$amd64" ]; then
+            hash=$(sha256sum -z "$amd64" | awk '{ print $1; }')
+            if [ "$first" -eq 0 ]; then printf ',\n'; fi
+            first=0
+            printf '        "64bit": {\n'
+            printf '            "url": "https://github.com/rupor-github/gclpr/releases/download/v{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}/gclpr_windows_amd64.zip",\n'
+            printf '            "hash": "%s"\n' "$hash"
+            printf '        }'
+          fi
+
+          if [ -f "$arm64" ]; then
+            hash=$(sha256sum -z "$arm64" | awk '{ print $1; }')
+            if [ "$first" -eq 0 ]; then printf ',\n'; fi
+            first=0
+            printf '        "arm64": {\n'
+            printf '            "url": "https://github.com/rupor-github/gclpr/releases/download/v{{.MAJOR}}.{{.MINOR}}.{{.PATCH}}/gclpr_windows_arm64.zip",\n'
+            printf '            "hash": "%s"\n' "$hash"
+            printf '        }'
+          fi
+
+          printf '\n    },\n'
+          printf '    "checkver": {\n'
+          printf '        "github": "https://github.com/rupor-github/gclpr"\n'
+          printf '    },\n'
+          printf '    "autoupdate": {\n'
+          printf '        "architecture": {\n'
+
+          first=1
+          if [ -f "$amd64" ]; then
+            if [ "$first" -eq 0 ]; then printf ',\n'; fi
+            first=0
+            printf '            "64bit": {\n'
+            printf '                "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/gclpr_windows_amd64.zip"\n'
+            printf '            }'
+          fi
+
+          if [ -f "$arm64" ]; then
+            if [ "$first" -eq 0 ]; then printf ',\n'; fi
+            first=0
+            printf '            "arm64": {\n'
+            printf '                "url": "https://github.com/rupor-github/gclpr/releases/download/v$version/gclpr_windows_arm64.zip"\n'
+            printf '            }'
+          fi
+
+          printf '\n        }\n'
+          printf '    }\n'
+          printf '}\n'
+        } > '{{.FILE}}'
 
   go-modinit:
     desc: Using current toolchain (re)initializes go.mod with provided module name, gets latest versions and runs tidy
