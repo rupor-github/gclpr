@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"io"
+	"net"
 	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetCommandAliased(t *testing.T) {
@@ -226,5 +231,80 @@ func TestGetCommandInternalOAuthWorker(t *testing.T) {
 	}
 	if cmd != cmdOAuthWorker {
 		t.Fatalf("cmd = %v, want %v", cmd, cmdOAuthWorker)
+	}
+}
+
+func TestTunnelClientRemoteEOFCloseWrite(t *testing.T) {
+	const macKey = "0123456789abcdef0123456789abcdef"
+
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+
+	endpoint := newTunnelEndpoint(serverConn, []byte(macKey))
+	client := newTunnelClient(endpoint)
+	defer client.closeAll()
+
+	localConn, remoteConn := net.Pipe()
+	defer remoteConn.Close()
+	stream := newTunnelLocalStream(7, localConn)
+	client.streams[stream.id] = stream
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.readFrames()
+	}()
+
+	peer := &tunnelEndpoint{conn: clientConn, br: bufio.NewReader(clientConn), macKey: []byte(macKey)}
+	if err := peer.writeFrame(tunnelFrame{Type: tunnelFrameEOF, StreamID: stream.id}); err != nil {
+		t.Fatalf("writeFrame EOF: %v", err)
+	}
+
+	readDone := make(chan struct{})
+	go func() {
+		var buf [1]byte
+		_, err := remoteConn.Read(buf[:])
+		if err != io.EOF {
+			t.Errorf("remote read err = %v, want EOF", err)
+		}
+		close(readDone)
+	}()
+
+	select {
+	case <-readDone:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for local CloseWrite propagation")
+	}
+
+	_ = endpoint.close()
+	if err := <-errCh; err != nil && err != io.EOF && err != net.ErrClosed && !errors.Is(err, io.ErrClosedPipe) && !strings.Contains(err.Error(), "closed pipe") {
+		t.Fatalf("readFrames err = %v", err)
+	}
+}
+
+func TestTunnelClientFinishTreatsIntentionalCloseAsSuccess(t *testing.T) {
+	const macKey = "0123456789abcdef0123456789abcdef"
+
+	serverConn, clientConn := net.Pipe()
+	defer serverConn.Close()
+	defer clientConn.Close()
+
+	endpoint := newTunnelEndpoint(serverConn, []byte(macKey))
+	client := newTunnelClient(endpoint)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- client.readFrames()
+	}()
+
+	client.finish()
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("readFrames err = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for intentional close to finish")
 	}
 }

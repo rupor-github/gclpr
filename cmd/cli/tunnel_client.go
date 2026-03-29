@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -126,12 +127,25 @@ func (s *tunnelLocalStream) close() {
 	})
 }
 
+func (s *tunnelLocalStream) closeWrite() {
+	if tcpConn, ok := s.conn.(*net.TCPConn); ok {
+		tcpConn.CloseWrite()
+		return
+	}
+	if closeWriter, ok := s.conn.(interface{ CloseWrite() error }); ok {
+		_ = closeWriter.CloseWrite()
+		return
+	}
+	s.close()
+}
+
 type tunnelClient struct {
 	endpoint *tunnelEndpoint
 	streams  map[uint32]*tunnelLocalStream
 	mu       sync.Mutex
 	closed   chan struct{}
 	doneOnce sync.Once
+	finished bool
 }
 
 func newTunnelClient(endpoint *tunnelEndpoint) *tunnelClient {
@@ -190,6 +204,9 @@ func (c *tunnelClient) readFrames() error {
 	for {
 		frame, err := c.endpoint.readFrame()
 		if err != nil {
+			if c.isFinished() && isExpectedTunnelClose(err) {
+				return nil
+			}
 			return err
 		}
 		switch frame.Type {
@@ -229,6 +246,10 @@ func (c *tunnelClient) readFrames() error {
 				log.Printf("tunnel client stream=%d detected oauth success callback request", frame.StreamID)
 			}
 		case tunnelFrameEOF:
+			stream := c.getStream(frame.StreamID)
+			if stream != nil {
+				stream.closeWrite()
+			}
 			continue
 		case tunnelFrameClose:
 			stream := c.getStream(frame.StreamID)
@@ -349,8 +370,21 @@ func (c *tunnelClient) dropStream(id uint32) {
 
 func (c *tunnelClient) finish() {
 	c.doneOnce.Do(func() {
+		c.mu.Lock()
+		c.finished = true
+		c.mu.Unlock()
 		_ = c.endpoint.close()
 	})
+}
+
+func (c *tunnelClient) isFinished() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.finished
+}
+
+func isExpectedTunnelClose(err error) bool {
+	return err == io.EOF || err == net.ErrClosed || errors.Is(err, io.ErrClosedPipe) || strings.Contains(err.Error(), "closed network connection") || strings.Contains(err.Error(), "closed pipe")
 }
 
 func summarizeTunnelBytes(data []byte) string {
