@@ -390,6 +390,12 @@ if #gclpr > 0 then
 end
 ```
 
+For `tmux` inside WSL, add this to `~/.tmux.conf`:
+
+```tmux
+set -s copy-command "~/winhome/.wsl/gclpr.exe copy"
+```
+
 In this setup, the Windows side remains the only server, Neovim opens links in the Windows-side browser, and the system clipboard is shared between the Windows host and all WSL2 sessions through the Windows client binary.
 
 ### Case 2. Multiple SSH sessions with port forwarding
@@ -404,9 +410,15 @@ export BROWSER="gclpr open"
 
 With the same Neovim clipboard configuration shown above, `gclpr` resolves to the Linux binary in SSH sessions and uses the forwarded `localhost:2850` connection to reach the Windows server.
 
+For `tmux` in SSH sessions, add this to `~/.tmux.conf`:
+
+```tmux
+set -s copy-command "gclpr copy"
+```
+
 For OAuth-style flows such as `az login`, you can create an `xdg-open` symbolic link to `gclpr` somewhere in your user `PATH` and set `BROWSER=xdg-open`. That lets headless remote environments transparently route browser launches through `gclpr`, which then handles the localhost callback tunnel and completes authentication in the Windows-side browser. You can also call `gclpr open -oauth` explicitly when you want the same behavior without relying on the alias.
 
-In this setup, links still open in the Windows-side browser, and the system clipboard is shared between the Windows host and all forwarded SSH sessions.
+In this setup, links still open in the Windows-side browser, and the system clipboard is shared between the Windows host and all forwarded SSH sessions, including `tmux` copy operations.
 
 ## Compatibility notes
 
