@@ -349,6 +349,8 @@ Packages also include a prebuilt [npiperelay.exe](https://github.com/jstarks/npi
 
 The examples below assume the Windows release is unpacked into a stable Windows-side location that is visible from WSL, for example `$HOME/winhome/.wsl/`, and that `gclpr` communication is already working, including SSH port forwarding where required. Adjust that path if you expose Windows files somewhere else.
 
+Case 1 and Case 2 can happily coexist: the same Windows `gclpr-gui.exe` server can serve local WSL2 sessions and remote SSH sessions at the same time.
+
 ### Case 1. Multiple WSL2 sessions, one Windows server
 
 Run `gclpr-gui.exe` on Windows and let every WSL2 shell or editor call the Windows-side `gclpr.exe`. This keeps one clipboard/browser server on Windows while multiple WSL2 sessions share it.
