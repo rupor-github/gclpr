@@ -162,6 +162,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	util.NewLogWriter(title, 0, aDebug)
+
 	if !aUnlocked {
 		locked, err := currentSessionLocked()
 		if err != nil {
@@ -176,8 +178,6 @@ func main() {
 			log.Print("Session starts unlocked")
 		}
 	}
-
-	util.NewLogWriter(title, 0, aDebug)
 
 	// Only allow single instance of gui to run
 	lockName := filepath.Join(os.TempDir(), title+".lock")

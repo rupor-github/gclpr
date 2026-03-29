@@ -4,66 +4,66 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
 var (
-	wts32                       = windows.NewLazySystemDLL("Wtsapi32.dll")
-	pWTSQuerySessionInformation = wts32.NewProc("WTSQuerySessionInformationW")
-	pWTSFreeMemory              = wts32.NewProc("WTSFreeMemory")
+	user32                    = windows.NewLazySystemDLL("user32.dll")
+	pOpenInputDesktop         = user32.NewProc("OpenInputDesktop")
+	pGetUserObjectInformation = user32.NewProc("GetUserObjectInformationW")
+	pCloseDesktop             = user32.NewProc("CloseDesktop")
 )
 
 const (
-	wtsCurrentSession      = ^uint32(0)
-	wtsInfoClassSessionEx  = 25
-	wtsSessionStateLock    = 0
-	wtsSessionStateOpen    = 1
-	wtsSessionStateUnknown = -1
+	uoiName = 2
 )
 
-type wtsSessionInfoExData struct {
-	Level        uint32
-	SessionID    uint32
-	SessionState uint32
-	SessionFlags int32
-}
-
 func currentSessionLocked() (bool, error) {
-	var buf uintptr
-	var size uint32
-	ret, _, err := pWTSQuerySessionInformation.Call(
-		0,
-		uintptr(wtsCurrentSession),
-		uintptr(wtsInfoClassSessionEx),
-		uintptr(unsafe.Pointer(&buf)),
-		uintptr(unsafe.Pointer(&size)),
+	hdesk, _, err := pOpenInputDesktop.Call(0, 0, windows.GENERIC_READ)
+	if hdesk == 0 {
+		if err == windows.ERROR_SUCCESS {
+			err = windows.GetLastError()
+		}
+		return false, fmt.Errorf("unable to open input desktop: %w", err)
+	}
+	defer pCloseDesktop.Call(hdesk)
+
+	var needed uint32
+	ret, _, err := pGetUserObjectInformation.Call(hdesk, uintptr(uoiName), 0, 0, uintptr(unsafe.Pointer(&needed)))
+	if ret == 0 && needed == 0 {
+		if err == windows.ERROR_SUCCESS {
+			err = windows.GetLastError()
+		}
+		return false, fmt.Errorf("unable to query input desktop name size: %w", err)
+	}
+
+	buf := make([]uint16, needed/2+1)
+	ret, _, err = pGetUserObjectInformation.Call(
+		hdesk,
+		uintptr(uoiName),
+		uintptr(unsafe.Pointer(&buf[0])),
+		uintptr(len(buf)*2),
+		uintptr(unsafe.Pointer(&needed)),
 	)
 	if ret == 0 {
 		if err == windows.ERROR_SUCCESS {
 			err = windows.GetLastError()
 		}
-		return false, fmt.Errorf("unable to query current session information: %w", err)
-	}
-	defer pWTSFreeMemory.Call(buf)
-
-	if size < uint32(unsafe.Sizeof(wtsSessionInfoExData{})) {
-		return false, fmt.Errorf("unexpected session info size %d", size)
-	}
-	info := (*wtsSessionInfoExData)(unsafe.Pointer(buf))
-	if info.Level != 1 {
-		return false, fmt.Errorf("unexpected session info level %d", info.Level)
+		return false, fmt.Errorf("unable to query input desktop name: %w", err)
 	}
 
-	switch info.SessionFlags {
-	case wtsSessionStateLock:
-		return true, nil
-	case wtsSessionStateOpen:
+	name := strings.TrimRight(windows.UTF16ToString(buf), "\x00")
+	log.Printf("Input desktop is %q", name)
+	switch strings.ToLower(name) {
+	case "default":
 		return false, nil
-	case wtsSessionStateUnknown:
-		return false, fmt.Errorf("current session lock state is unknown")
+	case "winlogon":
+		return true, nil
 	default:
-		return false, fmt.Errorf("unexpected session flags %d", info.SessionFlags)
+		return false, fmt.Errorf("unexpected input desktop %q", name)
 	}
 }
