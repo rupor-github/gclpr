@@ -15,7 +15,7 @@ jobs:
     steps:
 
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install mingw-w64 resource compiler
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -23,35 +23,17 @@ jobs:
           packages: mingw-w64 binutils-mingw-w64-x86-64
           version: 1.0
 
-      - name: Install Task
-        uses: go-task/setup-task@v1
-        with:
-          version: 3.x
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
-
       - name: Build everything
-        run: task release
-
-      - name: Sign release artifacts
-        uses: thomasdesr/minisign-action@v1
-        with:
-          args: -Sm release/gclpr_*.zip
-          minisign_key: ${{ secrets.minisign_key }}
-          password: ${{ secrets.minisign_password }}
+        run: go tool task release
 
       - name: List results
         run: ls -lah release/
 
       - name: Upload release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.ref_type == 'tag'
         with:
           generate_release_notes: true
           files: |
             gclpr.json
             release/gclpr_*.zip
-            release/gclpr_*.minisig

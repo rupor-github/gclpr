@@ -461,6 +461,7 @@ tasks:
       - go mod init github.com/rupor-github/{{.PRJ_NAME}}
       - go mod edit -go {{.GO_VERSION}} -toolchain go{{.GO_VERSION}}
       - go get -tool honnef.co/go/tools/cmd/staticcheck
+      - go get -tool github.com/go-task/task/v3/cmd/task@latest
       - go get -tool github.com/jstarks/npiperelay
       - go get -u ./...
       - go mod tidy {{.CLI_ARGS}}

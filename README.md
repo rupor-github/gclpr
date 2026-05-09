@@ -57,13 +57,6 @@ scoop update gclpr
 
 On all supported platforms, you can also download archives from the [releases page](https://github.com/rupor-github/gclpr/releases) and unpack them anywhere convenient. **Windows releases include both `gclpr.exe` (the standard CLI) and `gclpr-gui.exe` (a system tray application for running the server in the background).**
 
-Starting with v1.1.1, release archives are zip files signed with [minisign](https://jedisct1.github.io/minisign/). Public key:
-
-<p>
-    <img src="docs/build_key.svg" style="vertical-align:middle; width:15%" align="absmiddle"/>
-    <span style="vertical-align:middle;">&nbsp;&nbsp;RWTNh1aN8DrXq26YRmWO3bPBx4m8jBATGXt4Z96DF4OVSzdCBmoAU+Vq</span>
-</p>
-
 ## Quick start
 
 1. On the client side, create a key pair:
