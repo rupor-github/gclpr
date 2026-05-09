@@ -23,6 +23,11 @@ jobs:
           packages: mingw-w64 binutils-mingw-w64-x86-64
           version: 1.0
 
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
       - name: Build everything
         run: go tool task release
 
@@ -30,7 +35,7 @@ jobs:
         run: ls -lah release/
 
       - name: Upload release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: github.ref_type == 'tag'
         with:
           generate_release_notes: true
