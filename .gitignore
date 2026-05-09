@@ -14,14 +14,12 @@
 *.epub
 *.fb2
 *.kfx
-*.txt
 *.pyc
 
 # build specific
 build/
 release/
 build_*/
-**/todo.md
 **/__pycache__/*
 misc/version.go
 cmd/*/resources.rc
@@ -29,6 +27,3 @@ cmd/*/manifest.xml
 gclpr.json
 gclpr_*.zip
 gclpr_*.minisig
-!vendor/*.md
-!vendor/*.txt
-
