@@ -17,9 +17,10 @@
 *.pyc
 
 # build specific
-build/
-release/
-build_*/
+/build/
+/release/
+/build_*/
+/release_*/
 **/__pycache__/*
 misc/version.go
 cmd/*/resources.rc
