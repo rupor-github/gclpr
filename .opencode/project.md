@@ -1,9 +1,16 @@
 # AGENTS.md
 
+## VCS
+
+- This project uses `jj` as primary VCS.
+- Use `jj status`, `jj diff`, `jj log`, `jj show`, `jj git fetch`, and `jj git push`.
+- Do not use `git status`, `git diff`, `git log`, `git show`, `git add`, `git commit`, or `git push` unless the user explicitly asks for raw Git.
+- Treat `.git` as jj backend storage, not as the project workflow.
+- For GitHub-only operations, `gh` is still OK.
+
 ## Repo Shape
 
-- Project is using jj-vcs (not git).
-- Go module `github.com/rupor-github/gclpr`; `go.mod` requires Go `1.26.3` and records `task`, `staticcheck`, and `npiperelay` as Go tools.
+- Go module `github.com/rupor-github/gclpr`; `go.mod` records `task`, `staticcheck`, and `npiperelay` as Go tools.
 - Main binaries are `./cmd/cli` (`gclpr`) and Windows-only `./cmd/gui` (`gclpr-gui.exe` tray server).
 - Core RPC/server code is in `server/`; shared key/frame/file utilities are in `util/`.
 - `systray/` is a repo-local fork of `github.com/getlantern/systray` kept for Windows-specific behavior; do not treat it as an untouched upstream vendored dependency.
